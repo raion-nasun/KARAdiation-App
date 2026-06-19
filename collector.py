@@ -1061,6 +1061,72 @@ def _is_radiation_relevant(item: dict) -> bool:
     return True
 
 
+def _deduplicate_by_keywords(items: list, priority_fn) -> list:
+    """범용 내용 중복 제거 — 제목 키워드 2개 이상 겹치면 같은 건으로 판단.
+    priority_fn(item) → 숫자가 클수록 우선 채택.
+    """
+    url_seen = {}
+    for item in items:
+        url = item.get("url", "")
+        if url and url not in url_seen:
+            url_seen[url] = item
+    items = list(url_seen.values())
+
+    groups: list[tuple] = []  # [(item, keywords_set)]
+    for item in items:
+        kws = _title_keywords(item.get("title", ""))
+        if not kws:
+            groups.append((item, kws))
+            continue
+        merged = False
+        for idx, (rep, rep_kws) in enumerate(groups):
+            if len(kws & rep_kws) >= 2:
+                if priority_fn(item) > priority_fn(rep):
+                    groups[idx] = (item, rep_kws | kws)
+                else:
+                    groups[idx] = (rep, rep_kws | kws)
+                merged = True
+                break
+        if not merged:
+            groups.append((item, kws))
+    return [g[0] for g in groups]
+
+
+def _deduplicate_announcements(items: list) -> list:
+    """국내외 공고 중복 제거.
+    같은 사업을 SROME·bizinfo·원본기관이 동시에 올린 경우 원본기관 URL 우선.
+    우선순위: 원본기관 사이트 > bizinfo > srome/keit
+    """
+    def priority(item):
+        url = item.get("url", "")
+        if "bizinfo.go.kr" in url:
+            return 1
+        if any(d in url for d in ["srome.or.kr", "keit.re.kr", "smtech.go.kr"]):
+            return 2
+        return 3  # 원본기관 URL
+    result = _deduplicate_by_keywords(items, priority)
+    result.sort(key=lambda x: x.get("published", ""), reverse=True)
+    return result
+
+
+def _deduplicate_events(items: list) -> list:
+    """업계 행사 중복 제거.
+    같은 행사를 여러 경로로 수집한 경우 전용 행사 사이트(원본) 우선.
+    우선순위: 전용 행사 사이트 > 학회 공지 > 기타
+    """
+    AGGREGATOR_DOMAINS = ["karp.or.kr", "kns.org", "kaif.or.kr", "koara.or.kr",
+                          "ans.org/meetings/", "eanm.org/congresses/"]
+
+    def priority(item):
+        url = item.get("url", "")
+        if any(d in url for d in AGGREGATOR_DOMAINS):
+            return 1
+        return 2  # 전용 행사 사이트 (원본)
+    result = _deduplicate_by_keywords(items, priority)
+    result.sort(key=lambda x: x.get("published", ""), reverse=True)
+    return result
+
+
 def _deduplicate_industry_news(items: list) -> list:
     """산업 뉴스 중복 제거.
     동일 사건을 여러 언론사가 보도한 경우 파급력 높은 언론사 버전 1건만 유지.
@@ -1391,7 +1457,8 @@ def run_collection() -> dict:
     event_items = fetch_events()
     all_items.extend(event_items)
 
-    # 산업 뉴스: 원전·원자력 전용(방사선 무관) 기사 제외 후 dedup
+    # ── 카테고리별 내용 중복 제거 ──────────────────────────────────────────
+    # 산업 뉴스: 방사선 무관 제외 + 동일 사건 보도 중 파급력 높은 언론사 채택
     industry = [i for i in all_items if i.get("category") == "산업 뉴스"]
     others   = [i for i in all_items if i.get("category") != "산업 뉴스"]
     industry_filtered = [i for i in industry if _is_radiation_relevant(i)]
@@ -1400,9 +1467,28 @@ def run_collection() -> dict:
         print(f"  산업 뉴스 방사선 무관 제외: {len(industry)}건 → {len(industry_filtered)}건 ({excluded}건 제외)")
     industry_deduped = _deduplicate_industry_news(industry_filtered)
     print(f"  산업 뉴스 dedup: {len(industry_filtered)}건 → {len(industry_deduped)}건")
-    all_items = industry_deduped + others
 
-    # 수집된 항목 내 URL 중복 제거 (같은 수집 회차 내 중복)
+    # 국제 동향: 동일 사건 보도 중 파급력 높은 언론사 채택
+    intl = [i for i in others if i.get("category") == "국제 동향"]
+    others = [i for i in others if i.get("category") != "국제 동향"]
+    intl_deduped = _deduplicate_industry_news(intl)
+    print(f"  국제 동향 dedup: {len(intl)}건 → {len(intl_deduped)}건")
+
+    # 국내외 공고: 동일 사업 공고 중 원본기관 URL 우선
+    announce = [i for i in others if i.get("category") == "국내외 공고"]
+    others = [i for i in others if i.get("category") != "국내외 공고"]
+    announce_deduped = _deduplicate_announcements(announce)
+    print(f"  국내외 공고 dedup: {len(announce)}건 → {len(announce_deduped)}건")
+
+    # 업계 행사: 동일 행사 중 전용 행사 사이트(원본) 우선
+    events = [i for i in others if i.get("category") == "업계 행사"]
+    others = [i for i in others if i.get("category") != "업계 행사"]
+    events_deduped = _deduplicate_events(events)
+    print(f"  업계 행사 dedup: {len(events)}건 → {len(events_deduped)}건")
+
+    all_items = industry_deduped + intl_deduped + announce_deduped + events_deduped + others
+
+    # ── URL 중복 제거 (수집 회차 내) ────────────────────────────────────────
     seen_urls = set()
     unique_items = []
     for item in all_items:
@@ -1411,7 +1497,23 @@ def run_collection() -> dict:
         seen_urls.add(item["url"])
         unique_items.append(item)
 
-    # DB 저장 (INSERT OR IGNORE — URL 기준 중복은 DB 레벨에서 자동 제외)
+    # ── 카테고리별 일일 최대 10건 상한 (KARA 이벤트 제외) ───────────────────
+    DAILY_LIMIT_CATS = {"산업 뉴스", "국제 동향", "국내외 공고", "업계 행사"}
+    from collections import defaultdict
+    cat_counts: dict = defaultdict(int)
+    limited_items = []
+    for item in unique_items:
+        cat = item.get("category", "")
+        if cat not in DAILY_LIMIT_CATS:
+            limited_items.append(item)  # KARA 이벤트 등은 상한 없음
+        elif cat_counts[cat] < 10:
+            limited_items.append(item)
+            cat_counts[cat] += 1
+    unique_items = limited_items
+    for cat, cnt in sorted(cat_counts.items()):
+        print(f"    {cat}: {cnt}건 (상한 10)")
+
+    # DB 저장 (INSERT OR IGNORE — DB 내 URL 중복은 자동 제외)
     added = database.insert_news(unique_items)
     database.log_collection(added, "success", f"총 {len(unique_items)}건 처리, {added}건 신규 저장")
 
