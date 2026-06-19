@@ -443,196 +443,297 @@ def fetch_announcements() -> list:
 # ──────────────────────────────────────────
 
 def fetch_events() -> list:
-    """국내외 업계 행사 전문 사이트에서 실제 행사 수집"""
-    items = []
+    """방사선 업계 행사 수집 — 국내 7건 + 국외 3건 목표
+    - 실제 행사 개최일을 published/end_date로 저장
+    - 주최기관 원본 URL(공지사항 또는 전용 사이트) 링크
+    """
+    domestic = []
+    international = []
 
-    # 1. KNS(한국원자력학회) 메인에서 학술대회/행사 추출 (실제 주최기관 귀인 포함)
-    items.extend(fetch_kns_events())
+    domestic.extend(fetch_karp_notice_events())
+    international.extend(fetch_eanm_events())
+    international.extend(fetch_ans_events_v2())
 
-    # 2. KAIF(한국원자력산업협회) 메인에서 행사 추출
-    items.extend(fetch_kaif_events())
+    # 7:3 상한 적용 (날짜순 정렬 후 상한)
+    domestic.sort(key=lambda x: x.get("published", "9999"))
+    international.sort(key=lambda x: x.get("published", "9999"))
+    domestic = domestic[:7]
+    international = international[:3]
 
-    # 3. KARP(대한방사선방어학회) 공식 행사 페이지
-    items.extend(fetch_karp_events())
-
-    print(f"    행사 합계: {len(items)}건")
+    items = domestic + international
+    print(f"    행사 합계: {len(items)}건 (국내 {len(domestic)}, 국외 {len(international)})")
     return items
 
 
-def fetch_kns_events() -> list:
-    """KNS(한국원자력학회) 메인에서 학술대회·행사 수집"""
+def fetch_karp_notice_events() -> list:
+    """KARP 공지사항/국내소식/국제소식 게시판에서 방사선 행사 공고 수집.
+    - 상세 페이지에서 실제 행사 개최 날짜와 주최기관 원본 URL 추출
+    """
+    import urllib3
+    urllib3.disable_warnings()
+
+    BASE = "https://karp.or.kr"
+    # bo_idx: 8=공지사항, 9=국내소식, 10=국제소식
+    BOARD_IDS = [8, 9, 10]
+    EVENT_KWS = ["학술대회", "심포지엄", "워크숍", "세미나", "컨퍼런스", "포럼",
+                 "대회 개최", "행사 개최", "행사 안내", "등록 안내", "개최 안내"]
+    EXCLUDE_KWS = ["채용", "입찰", "후원신청", "후원 신청", "초록(논문)", "초록제출",
+                   "초록 제출", "사전등록 변경", "마감 연장", "안내서 배포", "결과 공표"]
+
     items = []
-    try:
-        resp = requests.get("https://www.kns.org", headers=HEADERS, timeout=15)
-        soup = BeautifulSoup(resp.text, "html.parser")
-        event_kws = ["학술대회", "심포지엄", "워크숍", "세미나", "포럼", "컨퍼런스",
-                     "학술발표", "정기총회"]
-        seen = set()
-        for a in soup.find_all("a", href=True):
-            href = a.get("href", "")
-            # 첫 번째 직계 텍스트 노드만 제목으로 사용 (미리보기 내용 제외)
-            direct_texts = [t.strip() for t in a.strings if t.strip()]
-            txt = direct_texts[0] if direct_texts else a.get_text(strip=True)
-            full_txt = a.get_text(strip=True)
-            if "/boards/view/" not in href:
-                continue
-            if not any(k in full_txt for k in event_kws):
-                continue
-            if href in seen or len(txt) < 5:
-                continue
-            seen.add(href)
-            if not href.startswith("http"):
-                href = "https://www.kns.org" + href
-            # 날짜 추출 (전체 텍스트에서)
-            dates = re.findall(r'\d{4}[-./년]\s*\d{1,2}[-./월]\s*\d{1,2}', full_txt)
-            pub_dt = datetime.now().strftime("%Y-%m-%d")
-            end_dt = ""
-            if len(dates) >= 2:
-                pub_dt = dates[0].replace(".", "-").replace("/", "-").replace("년", "-").replace("월", "-")
-                end_dt = dates[1].replace(".", "-").replace("/", "-").replace("년", "-").replace("월", "-")
-                pub_dt = re.sub(r'-+', '-', pub_dt).strip('-')
-                end_dt = re.sub(r'-+', '-', end_dt).strip('-')
-            elif len(dates) == 1:
-                pub_dt = dates[0].replace(".", "-").replace("/", "-")
-            # 첫 직계 텍스트를 제목으로 사용, 너무 짧으면 두 번째까지 합침
-            title = txt
-            if len(title) < 8 and len(direct_texts) > 1:
-                title = " ".join(direct_texts[:2])
-            title = title[:100]
-            # 실제 주최기관 추출 (KNS가 타 기관 행사 재게시하는 경우)
-            real_title, real_source = _extract_real_source(title, "한국원자력학회(KNS)")
-            items.append({
-                "title": real_title,
-                "source": real_source,
-                "url": href,
-                "published": pub_dt,
-                "category": "업계 행사",
-                "summary": "",
-                "region": "국내",
-                "end_date": end_dt,
-                "location": "",
-            })
-    except Exception as e:
-        print(f"  [오류] KNS 행사: {e}")
-    if items:
-        print(f"    KNS 행사: {len(items)}건")
-    return items
+    seen_urls = set()
 
+    from datetime import timedelta
+    today = datetime.now()
+    cutoff_past = (today - timedelta(days=90)).strftime("%Y-%m-%d")
+    cutoff_future = (today + timedelta(days=540)).strftime("%Y-%m-%d")
 
-def fetch_kaif_events() -> list:
-    """KAIF(한국원자력산업협회) 메인에서 행사 수집"""
-    items = []
-    EVENT_KWS = ["포럼", "심포지엄", "워크숍", "세미나", "컨퍼런스", "학술", "대회", "총회"]
-    for parsed in _parse_kaif_main():
-        # 반드시 행사 키워드가 제목에 있어야 함 (보도자료도 키워드 없으면 제외)
-        if not any(k in parsed["title"] for k in EVENT_KWS):
-            continue
-        items.append({
-            "title": parsed["title"],
-            "source": "한국원자력산업협회(KAIF)",
-            "url": parsed["href"],
-            "published": datetime.now().strftime("%Y-%m-%d"),
-            "category": "업계 행사",
-            "summary": "",
-            "region": "국내",
-            "end_date": parsed["deadline"],
-            "location": "",
-        })
-    if items:
-        print(f"    KAIF 행사: {len(items)}건")
-    return items
+    for bo_idx in BOARD_IDS:
+        try:
+            board_url = f"{BASE}/index.php?hCode=BOARD&bo_idx={bo_idx}"
+            resp = requests.get(board_url, headers=HEADERS, timeout=15, verify=False)
+            soup = BeautifulSoup(resp.content, "html.parser")
 
+            for a in soup.find_all("a", href=True):
+                href = a["href"]
+                raw_txt = a.get_text(strip=True)
 
-def fetch_karp_events() -> list:
-    """대한방사선방어학회(KARP) 공식 행사 수집 — cl_Idx 스캔 방식"""
-    items = []
-    try:
-        # 현재 연도 기준으로 cl_Idx 탐색 범위 설정 (최근 70부터 상향 스캔)
-        # cl_Idx 패턴: 연간 3~4개 행사 (동계/춘계/하계/추계)
-        from datetime import timedelta
-        today = datetime.now()
-        cutoff_past = (today - timedelta(days=180)).strftime("%Y-%m-%d")
-        cutoff_future = (today + timedelta(days=365)).strftime("%Y-%m-%d")
-
-        # 유효 cl_Idx 탐색 (연속으로 내용 없으면 중단)
-        empty_count = 0
-        for cl_idx in range(70, 100):
-            if empty_count >= 5:
-                break
-            try:
-                r = requests.get(
-                    f"https://karp.or.kr/index.php?hCode=CONFERENCE_INFO&cl_Idx={cl_idx}",
-                    headers=HEADERS, timeout=10, verify=False
-                )
-                soup = BeautifulSoup(r.text, "html.parser")
-                page_text = soup.get_text("\n", strip=True)
-
-                # 날짜 패턴 탐지
-                dates_found = re.findall(r'20(?:25|26|27)\s*\.\s*\d{1,2}\s*\.\s*\d{1,2}', page_text)
-                event_names = re.findall(
-                    r'(20\d{2}년\s*(?:동계|춘계|하계|추계)\s*(?:학술대회|워크숍))',
-                    page_text
-                )
-
-                if not dates_found and not event_names:
-                    empty_count += 1
+                if "idx=" not in href:
                     continue
-                empty_count = 0
-
-                # 날짜 정제
-                def parse_karp_date(raw):
-                    cleaned = re.sub(r'\s+', '', raw)  # "2026. 8.27" → "2026.8.27"
-                    m = re.match(r'(\d{4})\.(\d{1,2})\.(\d{1,2})', cleaned)
-                    if m:
-                        return f"{m.group(1)}-{m.group(2).zfill(2)}-{m.group(3).zfill(2)}"
-                    return ""
-
-                parsed_dates = [parse_karp_date(d) for d in dates_found]
-                parsed_dates = [d for d in parsed_dates if d]  # 빈 값 제거
-                if not parsed_dates:
+                if len(raw_txt) < 8:
+                    continue
+                if not any(k in raw_txt for k in EVENT_KWS):
+                    continue
+                if any(k in raw_txt for k in EXCLUDE_KWS):
                     continue
 
-                start_dt = parsed_dates[0]
-                # end_dt은 start_dt 이후인 날짜 중 가장 가까운 것
-                end_dt = ""
-                for pd in parsed_dates[1:]:
-                    if pd >= start_dt:
-                        end_dt = pd
-                        break
-
-                # 날짜 범위 필터 (과거 6개월 ~ 미래 1년)
-                if start_dt < cutoff_past and (not end_dt or end_dt < cutoff_past):
+                full_url = BASE + "/" + href.lstrip("./")
+                if full_url in seen_urls:
                     continue
-                if start_dt > cutoff_future:
-                    continue
+                seen_urls.add(full_url)
 
-                # 행사명
-                if event_names:
-                    event_title = event_names[0].strip()
-                else:
-                    # 텍스트에서 행사명 추출 시도
-                    lines = [l.strip() for l in page_text.split("\n") if l.strip() and len(l.strip()) > 5]
-                    event_lines = [l for l in lines if "대한방사선방어학회" in l or "KARP" in l
-                                   or any(k in l for k in ["학술대회", "워크숍", "심포"])]
-                    event_title = event_lines[0][:80] if event_lines else f"대한방사선방어학회 행사 (cl_Idx={cl_idx})"
+                # 제목 정제 (▣, [국제행사], (수정6.11.) 등 접두어 제거)
+                title = re.sub(r'^[▣▷►\s]+', '', raw_txt).strip()
+                title = re.sub(r'^\[.{1,10}\]\s*', '', title).strip()
+                title = re.sub(r'^\(.{1,15}\)\s*', '', title).strip()
+                title = re.sub(r'\(신청마감\s*[\d/]+\)', '', title).strip()
+                title = title[:100]
 
-                items.append({
-                    "title": event_title,
-                    "source": "대한방사선방어학회(KARP)",
-                    "url": f"https://karp.or.kr/index.php?hCode=CONFERENCE_INFO&cl_Idx={cl_idx}",
-                    "published": datetime.now().strftime("%Y-%m-%d"),
-                    "category": "업계 행사",
-                    "summary": "",
-                    "region": "국내",
-                    "end_date": end_dt,
-                    "location": "",
-                })
-            except Exception:
-                empty_count += 1
-    except Exception as e:
-        print(f"  [오류] KARP 행사: {e}")
+                try:
+                    dr = requests.get(full_url, headers=HEADERS, timeout=10, verify=False)
+                    dsoup = BeautifulSoup(dr.content, "html.parser")
+                    dtxt = dsoup.get_text("\n")
+
+                    # 행사 개최 날짜 파싱: "2026년 10월 25일 ~ 10월 29일"
+                    range_m = re.search(
+                        r'(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일[^~\n]{0,30}~[^0-9\n]{0,10}(?:(\d{4})\s*년\s*)?(\d{1,2})\s*월\s*(\d{1,2})\s*일',
+                        dtxt
+                    )
+                    if range_m:
+                        year = range_m.group(1)
+                        end_year = range_m.group(4) or year
+                        start_dt = f"{year}-{range_m.group(2).zfill(2)}-{range_m.group(3).zfill(2)}"
+                        end_dt = f"{end_year}-{range_m.group(5).zfill(2)}-{range_m.group(6).zfill(2)}"
+                    else:
+                        dm = re.search(r'(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일', dtxt)
+                        start_dt = (f"{dm.group(1)}-{dm.group(2).zfill(2)}-{dm.group(3).zfill(2)}"
+                                    if dm else datetime.now().strftime("%Y-%m-%d"))
+                        end_dt = ""
+
+                    # 날짜 범위 필터 (과거 3개월 ~ 미래 18개월)
+                    if start_dt < cutoff_past:
+                        continue
+                    if start_dt > cutoff_future:
+                        continue
+
+                    # 주최기관 원본 URL (외부 링크 중 첫 번째)
+                    SKIP_DOMAINS = ["karp.or.kr", "jrpr.org", "icrp.org", "unscear.org",
+                                    "youtube.com", "band.us", "docs.google.com"]
+                    ext_url = None
+                    for ea in dsoup.find_all("a", href=True):
+                        ehref = ea["href"]
+                        if (ehref.startswith("http")
+                                and not any(d in ehref for d in SKIP_DOMAINS)):
+                            ext_url = ehref
+                            break
+
+                    # 장소
+                    loc_m = re.search(r'(?:장소|Venue|Location)\s*:?\s*([^\n\(]{5,50})',
+                                      dtxt, re.IGNORECASE)
+                    location = loc_m.group(1).strip() if loc_m else ""
+
+                    # 국내/해외 구분 (개최 장소 기준)
+                    intl_markers = ["Vienna", "Austin", "Dallas", "Chicago", "Washington",
+                                    "Atlanta", "Orlando", "Boston", "London", "Berlin"]
+                    region = "해외" if any(m in dtxt for m in intl_markers) else "국내"
+
+                    items.append({
+                        "title": title,
+                        "source": "대한방사선방어학회(KARP)",
+                        "url": ext_url or full_url,
+                        "published": start_dt,
+                        "category": "업계 행사",
+                        "summary": "",
+                        "region": region,
+                        "end_date": end_dt,
+                        "location": location,
+                    })
+                except Exception:
+                    pass
+        except Exception as e:
+            print(f"  [오류] KARP bo_idx={bo_idx}: {e}")
+
     if items:
         print(f"    KARP 행사: {len(items)}건")
+    return items
+
+
+def fetch_eanm_events() -> list:
+    """EANM(유럽핵의학학회) 연례 학술대회 수집"""
+    items = []
+    try:
+        year = datetime.now().year
+        for y in [year, year + 1]:
+            url = f"https://www.eanm.org/congresses/eanm{str(y)[2:]}/"
+            resp = requests.get(url, headers=HEADERS, timeout=15)
+            if resp.status_code != 200:
+                continue
+            soup = BeautifulSoup(resp.text, "html.parser")
+            txt = soup.get_text("\n")
+
+            # 날짜: "October 17-21, 2026"
+            dm = re.search(
+                r'((?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|'
+                r'Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?))'
+                r'\s+(\d{1,2})[-–](\d{1,2}),?\s*(\d{4})',
+                txt
+            )
+            if not dm:
+                continue
+            month_map = {"jan":1,"feb":2,"mar":3,"apr":4,"may":5,"jun":6,
+                         "jul":7,"aug":8,"sep":9,"oct":10,"nov":11,"dec":12}
+            mo = month_map.get(dm.group(1)[:3].lower(), 1)
+            yr = dm.group(4)
+            start_dt = f"{yr}-{mo:02d}-{int(dm.group(2)):02d}"
+            end_dt   = f"{yr}-{mo:02d}-{int(dm.group(3)):02d}"
+
+            # 장소
+            loc_m = re.search(r'(?:Vienna|Barcelona|Barcelona|Amsterdam|Gothenburg|Copenhagen)[^,\n]{0,30}', txt)
+            location = loc_m.group(0).strip() if loc_m else ""
+
+            # 타이틀
+            h1 = soup.find("h1") or soup.find("title")
+            title = (h1.get_text(strip=True) if h1 else f"EANM'{str(y)[2:]} Annual Congress")[:100]
+
+            items.append({
+                "title": title,
+                "source": "EANM",
+                "url": url,
+                "published": start_dt,
+                "category": "업계 행사",
+                "summary": "",
+                "region": "해외",
+                "end_date": end_dt,
+                "location": location,
+            })
+            break  # 첫 번째 유효 연도면 중단
+    except Exception as e:
+        print(f"  [오류] EANM 행사: {e}")
+    if items:
+        print(f"    EANM 행사: {len(items)}건")
+    return items
+
+
+def fetch_ans_events_v2() -> list:
+    """ANS(미국원자력학회) 행사 목록 페이지에서 2026년 국제 행사 수집.
+    - 목록 페이지 텍스트에서 날짜·장소·링크 패턴 직접 파싱
+    """
+    items = []
+    try:
+        resp = requests.get("https://www.ans.org/meetings/", headers=HEADERS, timeout=15)
+        soup = BeautifulSoup(resp.text, "html.parser")
+        txt = soup.get_text("\n")
+
+        month_map = {"january":1,"february":2,"march":3,"april":4,"may":5,"june":6,
+                     "july":7,"august":8,"september":9,"october":10,"november":11,"december":12,
+                     "jan":1,"feb":2,"mar":3,"apr":4,"jun":6,"jul":7,"aug":8,
+                     "sep":9,"oct":10,"nov":11,"dec":12}
+
+        # "August 16–20, 2026|Global 2026|…|Chicago" 패턴으로 파싱
+        date_pat = re.compile(
+            r'((?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|'
+            r'Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?))'
+            r'\s+(\d{1,2})[-–](\d{1,2}),?\s*(20\d{2})'
+        )
+
+        # 목록 페이지의 행사 링크 모음
+        event_links = {}
+        for a in soup.find_all("a", href=True):
+            href = a["href"]
+            if "/meetings/view-" in href or ("/meetings/" in href and href != "/meetings/"):
+                slug = href.rstrip("/").split("/")[-1]
+                event_links[slug] = ("https://www.ans.org" + href
+                                     if href.startswith("/") else href)
+
+        # 텍스트에서 날짜 이후 행사명·장소 파싱
+        for dm in date_pat.finditer(txt):
+            year_val = int(dm.group(4))
+            if year_val != datetime.now().year and year_val != datetime.now().year + 1:
+                continue
+            mo = month_map.get(dm.group(1)[:3].lower(), 0)
+            if mo == 0:
+                continue
+
+            start_dt = f"{year_val}-{mo:02d}-{int(dm.group(2)):02d}"
+            end_dt   = f"{year_val}-{mo:02d}-{int(dm.group(3)):02d}"
+
+            # 날짜 직후 약 200자에서 이름·장소 추출
+            after = txt[dm.end():dm.end()+200].replace("\n", "|")
+            # 행사명: 파이프 구분된 첫 번째 긴 토큰
+            parts = [p.strip() for p in after.split("|") if len(p.strip()) > 4]
+            event_name = parts[0][:80] if parts else f"ANS Event {start_dt}"
+            location = next((p for p in parts[1:] if any(
+                c in p for c in [", TX", ", IL", ", AZ", ", CA", ", OH", ", FL", ", DC", ", NV"]
+            )), "")
+
+            # 전용 URL 탐색 (행사명 slug)
+            slug_guess = event_name.lower().replace(" ", "").replace("&", "")
+            url = next((v for k, v in event_links.items()
+                        if k.replace("-","").replace("_","") in slug_guess
+                        or slug_guess[:8] in k.replace("-","")), None)
+            # NECX는 별도 도메인
+            if url and "necx" in url:
+                r2 = requests.get(url, headers=HEADERS, timeout=5, allow_redirects=True)
+                url = r2.url
+
+            if not url:
+                url = "https://www.ans.org/meetings/"
+
+            items.append({
+                "title": event_name,
+                "source": "ANS",
+                "url": url,
+                "published": start_dt,
+                "category": "업계 행사",
+                "summary": "",
+                "region": "해외",
+                "end_date": end_dt,
+                "location": location,
+            })
+
+        # 중복 제거 (같은 날짜 행사)
+        seen = set()
+        deduped = []
+        for it in items:
+            key = it["published"]
+            if key not in seen:
+                seen.add(key)
+                deduped.append(it)
+        items = deduped
+    except Exception as e:
+        print(f"  [오류] ANS 행사: {e}")
+    if items:
+        print(f"    ANS 행사: {len(items)}건")
     return items
 
 
@@ -1285,8 +1386,14 @@ def run_collection() -> dict:
     announce_items = fetch_announcements()
     all_items.extend(announce_items)
 
-    # 5. 업계 행사 (실제 행사 전용)
+    # 5. 업계 행사 (매 수집마다 전체 갱신 — 개최일 기반 데이터이므로 항상 재구성)
     print("  업계 행사 수집 중...")
+    _conn = database.get_conn()
+    _deleted = _conn.execute("DELETE FROM news WHERE category='업계 행사'").rowcount
+    _conn.commit()
+    _conn.close()
+    if _deleted:
+        print(f"    기존 행사 {_deleted}건 삭제 후 재수집")
     event_items = fetch_events()
     all_items.extend(event_items)
 
