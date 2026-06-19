@@ -60,7 +60,13 @@ GOOGLE_NEWS_QUERIES = [
     ("원자력 원전", "산업 뉴스"),
     ("방사성동위원소 동위원소", "산업 뉴스"),
     ("한국방사선진흥협회 KARA", "KARA 주요이벤트"),
-    ("IAEA nuclear radiation international", "국제 동향"),
+    # 국제 동향 — 분야별 다양화 (원전만 해당 기사 제외, 방사선 관련 키워드 필수)
+    ("IAEA radiation safety nuclear medicine 2026", "국제 동향"),
+    ("radiopharmaceutical therapy treatment international", "국제 동향"),
+    ("radiation protection guidelines WHO UNSCEAR", "국제 동향"),
+    ("radioactive contamination environmental monitoring", "국제 동향"),
+    ("radiation emergency response international", "국제 동향"),
+    ("radioactive waste disposal management", "국제 동향"),
     ("비파괴검사 방사선안전", "산업 뉴스"),
     ("SMR 소형모듈원자로", "산업 뉴스"),
 ]
@@ -81,12 +87,34 @@ MEDIA_RANK = {
 KARA_OFFICIAL_SOURCES = {"한국방사선진흥협회", "KARA Campus", "RATIS"}
 
 # 전용 뉴스 RSS 피드 (산업 뉴스·국제 동향)
+# 국제 동향: Google News 다중 쿼리가 주(主), World Nuclear News RSS는 방사선 관련 기사만 보완
 RSS_FEEDS = [
     ("https://www.energydaily.co.kr/rss/allArticle.xml", "에너지데일리", None),
     ("https://www.esnews.kr/rss/allArticle.xml", "에너지안전신문", None),
     ("https://www.world-nuclear-news.org/rss", "World Nuclear News", "국제 동향"),
-    ("https://www.iaea.org/feeds/pressreleases.xml", "IAEA", "국제 동향"),
 ]
+
+# 국제 동향 방사선 관련성 필터 키워드 (원전/에너지만인 기사는 제외)
+INTL_RADIATION_KWS = [
+    "radiation", "radioactive", "radioactivity", "radiological",
+    "radiopharmaceutical", "radionuclide", "radioisotope",
+    "dosimetry", "dose", "contamination", "decontamination",
+    "nuclear medicine", "radiology", "radioprotection",
+    "radioactive waste", "spent fuel", "nuclear waste",
+    "radiation safety", "radiation protection",
+    "gamma", "tritium", "radon", "fallout", "isotope",
+    "brachytherapy", "radiosurgery", "radioiodine",
+    "pet scan", "spect", "scintigraphy",
+    "radiation emergency", "nuclear accident", "nuclear safety",
+    "radiation therapy", "radiotherapy", "nuclear medicine",
+    "radiation monitoring", "radiation measurement",
+    "radioactive contamination", "nuclear fallout",
+    "방사선", "방사성", "방사능", "방사성의약품", "방사성동위원소",
+    "핵의학", "방사선 치료", "방사선 안전", "방사성폐기물",
+]
+
+# 국제 동향 소스별 최대 수집 건수 (다양성 보장)
+INTL_SOURCE_LIMIT = 3
 
 # 국내외 공고 전용 RSS (실제 공고 수집)
 
@@ -260,25 +288,36 @@ def fetch_google_news_rss(query: str, category_hint: str) -> list:
     return items
 
 
+def _is_intl_radiation_relevant(title: str, summary: str = "") -> bool:
+    """국제 동향 방사선 관련성 필터 — 원전/에너지만인 기사는 제외"""
+    text = (title + " " + summary).lower()
+    return any(kw.lower() in text for kw in INTL_RADIATION_KWS)
+
+
 def fetch_rss_feed(feed_url: str, source_name: str, category_hint: str = None) -> list:
     """일반 RSS 피드 수집"""
     items = []
+    is_intl_source = category_hint == "국제 동향"
     try:
         resp = requests.get(feed_url, headers=HEADERS, timeout=15)
         feed = feedparser.parse(resp.content)
-        for entry in feed.entries[:20]:
+        for entry in feed.entries[:30]:
             title = entry.get("title", "").strip()
             link = entry.get("link", "")
             if not title or not link:
                 continue
 
-            if source_name not in ("World Nuclear News", "IAEA"):
-                if not is_radiation_related(title):
-                    continue
-
             summary = BeautifulSoup(
                 entry.get("summary", ""), "html.parser"
             ).get_text()[:300]
+
+            if is_intl_source:
+                # 국제 동향: 방사선 키워드 필수 (원전만인 기사 제외)
+                if not _is_intl_radiation_relevant(title, summary):
+                    continue
+            else:
+                if not is_radiation_related(title):
+                    continue
 
             items.append({
                 "title": title,
@@ -1468,11 +1507,22 @@ def run_collection() -> dict:
     industry_deduped = _deduplicate_industry_news(industry_filtered)
     print(f"  산업 뉴스 dedup: {len(industry_filtered)}건 → {len(industry_deduped)}건")
 
-    # 국제 동향: 동일 사건 보도 중 파급력 높은 언론사 채택
+    # 국제 동향: 방사선 무관 제외 → 소스 다양성 (소스당 최대 3건) → 내용 dedup
     intl = [i for i in others if i.get("category") == "국제 동향"]
     others = [i for i in others if i.get("category") != "국제 동향"]
-    intl_deduped = _deduplicate_industry_news(intl)
-    print(f"  국제 동향 dedup: {len(intl)}건 → {len(intl_deduped)}건")
+    intl_rad = [i for i in intl if _is_intl_radiation_relevant(i.get("title", ""), i.get("summary", ""))]
+    if len(intl) != len(intl_rad):
+        print(f"  국제 동향 방사선 무관 제외: {len(intl)}건 → {len(intl_rad)}건")
+    # 소스 다양성: 단일 소스 독점 방지
+    from collections import defaultdict as _dd
+    _src_cnt: dict = _dd(int)
+    intl_diverse = []
+    for item in sorted(intl_rad, key=lambda x: x.get("published", ""), reverse=True):
+        if _src_cnt[item.get("source", "")] < INTL_SOURCE_LIMIT:
+            intl_diverse.append(item)
+            _src_cnt[item.get("source", "")] += 1
+    intl_deduped = _deduplicate_industry_news(intl_diverse)
+    print(f"  국제 동향 dedup: {len(intl_diverse)}건 → {len(intl_deduped)}건")
 
     # 국내외 공고: 동일 사업 공고 중 원본기관 URL 우선
     announce = [i for i in others if i.get("category") == "국내외 공고"]
