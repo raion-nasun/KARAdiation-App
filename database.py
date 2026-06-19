@@ -157,8 +157,8 @@ def get_news(category=None, starred=None, unread=None, search=None, limit=200, o
 def get_stats():
     conn = get_conn()
     total = conn.execute("SELECT COUNT(*) FROM news").fetchone()[0]
-    unread = conn.execute("SELECT COUNT(*) FROM news WHERE is_read=0").fetchone()[0]
-    starred = conn.execute("SELECT COUNT(*) FROM news WHERE is_starred=1").fetchone()[0]
+    # 모든 ID 반환 — 프론트엔드 로컬스토리지 기반 unread 계산에 사용
+    all_ids = [r[0] for r in conn.execute("SELECT id FROM news").fetchall()]
     by_cat = conn.execute(
         "SELECT category, COUNT(*) as cnt FROM news GROUP BY category ORDER BY cnt DESC"
     ).fetchall()
@@ -171,8 +171,7 @@ def get_stats():
     conn.close()
     return {
         "total": total,
-        "unread": unread,
-        "starred": starred,
+        "all_ids": all_ids,
         "by_category": [dict(r) for r in by_cat],
         "last_collect": dict(last_collect) if last_collect else None,
         "recent_7d": recent_7d,

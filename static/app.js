@@ -1,5 +1,41 @@
 /* 방사선 소식 PWA — app.js */
 
+// ── 로컬 즐겨찾기·읽음 (기기별 독립 저장) ──
+const LOCAL = {
+  _starred: new Set(JSON.parse(localStorage.getItem('starredIds') || '[]')),
+  _read:    new Set(JSON.parse(localStorage.getItem('readIds')    || '[]')),
+
+  isStarred(id) { return this._starred.has(Number(id)); },
+  isRead(id)    { return this._read.has(Number(id)); },
+
+  star(id) {
+    id = Number(id);
+    if (this._starred.has(id)) this._starred.delete(id);
+    else this._starred.add(id);
+    localStorage.setItem('starredIds', JSON.stringify([...this._starred]));
+    return this._starred.has(id);
+  },
+  markRead(id) {
+    this._read.add(Number(id));
+    localStorage.setItem('readIds', JSON.stringify([...this._read]));
+  },
+  markAllRead(ids) {
+    ids.forEach(id => this._read.add(Number(id)));
+    localStorage.setItem('readIds', JSON.stringify([...this._read]));
+  },
+  unreadCount(items) {
+    return items.filter(i => !this._read.has(Number(i.id))).length;
+  },
+  // 서버 응답에 로컬 상태를 덮어씌움
+  applyTo(items) {
+    return items.map(i => ({
+      ...i,
+      is_starred: this._starred.has(Number(i.id)) ? 1 : 0,
+      is_read:    this._read.has(Number(i.id))    ? 1 : 0,
+    }));
+  },
+};
+
 // ── 상태 ──────────────────────────────────
 const STATE = {
   tab: 'home',
@@ -65,7 +101,11 @@ function closeCategory() {
 async function loadStats() {
   try {
     const d = await fetch('/api/stats').then(r => r.json());
-    const unread = d.unread || 0;
+    // 읽음 여부는 로컬 기준: 전체 기사 수 - 로컬에서 읽은 기사 수
+    const totalIds = d.all_ids || [];
+    const unread = totalIds.length
+      ? totalIds.filter(id => !LOCAL.isRead(id)).length
+      : Math.max(0, (d.total || 0) - LOCAL._read.size);
     const badge = document.getElementById('unreadBadge');
     if (unread > 0) {
       badge.textContent = unread > 99 ? '99+' : unread;
@@ -101,7 +141,8 @@ async function loadFeed(append = false) {
     unread: '0',
     offset: STATE.offset,
   });
-  const items = await fetch(`/api/news?${params}`).then(r => r.json());
+  const raw = await fetch(`/api/news?${params}`).then(r => r.json());
+  const items = LOCAL.applyTo(raw);
   const feed = document.getElementById('newsFeed');
 
   if (!append) feed.innerHTML = '';
@@ -176,7 +217,8 @@ function makeCard(item) {
 // ── 상세 보기 ─────────────────────────────
 async function openDetail(item) {
   STATE.currentDetail = item;
-  await fetch(`/api/read/${item.id}`, { method: 'POST' });
+  // 읽음 처리 — 로컬 저장 (서버 API는 호출하지 않음)
+  LOCAL.markRead(item.id);
 
   // 카드 읽음 처리
   const card = document.querySelector(`.news-card[data-id="${item.id}"]`);
@@ -236,8 +278,9 @@ async function openDetail(item) {
   const urlBtn = document.getElementById('detailUrlBtn');
   const starBtn = document.getElementById('detailStarBtn');
   urlBtn.onclick = () => openUrl(item.url || '');
-  starBtn.className = `btn-star-detail ${item.is_starred ? 'on' : ''}`;
-  starBtn.textContent = item.is_starred ? '★' : '☆';
+  const starred = LOCAL.isStarred(item.id);
+  starBtn.className = `btn-star-detail ${starred ? 'on' : ''}`;
+  starBtn.textContent = starred ? '★' : '☆';
   starBtn.onclick = () => toggleStarDetail(item.id);
   document.getElementById('detailActions').style.display = 'flex';
 
@@ -273,23 +316,24 @@ function openUrl(url) {
   if (url && url !== 'undefined') window.open(url, '_blank', 'noopener');
 }
 
-async function toggleStarDetail(id) {
-  await fetch(`/api/star/${id}`, { method: 'POST' });
+function toggleStarDetail(id) {
+  const nowStarred = LOCAL.star(id);
   const btn = document.getElementById('detailStarBtn');
-  const isOn = btn.classList.contains('on');
-  btn.classList.toggle('on');
-  btn.textContent = isOn ? '☆' : '★';
-  showToast(isOn ? '즐겨찾기 해제' : '즐겨찾기에 저장됨');
+  btn.classList.toggle('on', nowStarred);
+  btn.textContent = nowStarred ? '★' : '☆';
+  showToast(nowStarred ? '즐겨찾기에 저장됨' : '즐겨찾기 해제');
 
   // 피드 카드도 업데이트
   const cardStar = document.querySelector(`.news-card[data-id="${id}"] .btn-star`);
-  if (cardStar) { cardStar.classList.toggle('on', !isOn); cardStar.textContent = isOn ? '☆' : '★'; }
+  if (cardStar) { cardStar.classList.toggle('on', nowStarred); cardStar.textContent = nowStarred ? '★' : '☆'; }
   loadStats();
 }
 
 // ── 즐겨찾기 탭 ───────────────────────────
 async function loadFavorites() {
-  const items = await fetch('/api/news?category=전체&search=&starred=1&unread=0&offset=0').then(r => r.json());
+  // 로컬 저장된 ID 기준으로 서버에서 전체 조회 후 필터
+  const raw = await fetch('/api/news?category=전체&search=&starred=0&unread=0&offset=0').then(r => r.json());
+  const items = LOCAL.applyTo(raw).filter(i => i.is_starred);
   const feed = document.getElementById('favFeed');
   const sub = document.getElementById('starSubtitle');
   sub.textContent = `저장된 기사 ${items.length}건`;
@@ -432,7 +476,7 @@ async function runHomeSearch(q) {
   localStorage.setItem('recentSearches', JSON.stringify(STATE.recentSearches));
 
   const params = new URLSearchParams({ category: STATE.searchCat, search: q, starred: '0', unread: '0', offset: 0 });
-  const items = await fetch(`/api/news?${params}`).then(r => r.json());
+  const items = LOCAL.applyTo(await fetch(`/api/news?${params}`).then(r => r.json()));
 
   res.innerHTML = '';
   if (!items.length) {
@@ -542,17 +586,25 @@ async function loadAnalysis() {
 }
 
 // ── 별/읽음 ───────────────────────────────
-async function toggleStar(id, btn) {
-  await fetch(`/api/star/${id}`, { method: 'POST' });
-  const isOn = btn.classList.contains('on');
-  btn.classList.toggle('on', !isOn);
-  btn.textContent = isOn ? '☆' : '★';
-  showToast(isOn ? '즐겨찾기 해제' : '즐겨찾기에 저장됨');
+function toggleStar(id, btn) {
+  const nowStarred = LOCAL.star(id);
+  btn.classList.toggle('on', nowStarred);
+  btn.textContent = nowStarred ? '★' : '☆';
+  showToast(nowStarred ? '즐겨찾기에 저장됨' : '즐겨찾기 해제');
+  // 상세 보기가 같은 항목이면 동기화
+  const detailStar = document.getElementById('detailStarBtn');
+  if (STATE.currentDetail?.id === Number(id) && detailStar) {
+    detailStar.classList.toggle('on', nowStarred);
+    detailStar.textContent = nowStarred ? '★' : '☆';
+  }
   loadStats();
 }
 
 async function markAllReadGlobal() {
-  await fetch('/api/read_all', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category: '전체' }) });
+  // 현재 피드에 보이는 모든 아이템 ID를 읽음 처리
+  const cards = document.querySelectorAll('#newsFeed .news-card[data-id]');
+  const ids = [...cards].map(c => Number(c.dataset.id));
+  LOCAL.markAllRead(ids);
   showToast('전체 읽음 처리 완료');
   loadFeed();
   loadStats();
