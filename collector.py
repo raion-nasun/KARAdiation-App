@@ -1386,21 +1386,10 @@ def run_collection() -> dict:
     announce_items = fetch_announcements()
     all_items.extend(announce_items)
 
-    # 5. 업계 행사 (매 수집마다 전체 갱신 — 개최일 기반 데이터이므로 항상 재구성)
+    # 5. 업계 행사 (누적 저장 — 기존 데이터 유지, 신규만 추가)
     print("  업계 행사 수집 중...")
-    _conn = database.get_conn()
-    _deleted = _conn.execute("DELETE FROM news WHERE category='업계 행사'").rowcount
-    _conn.commit()
-    _conn.close()
-    if _deleted:
-        print(f"    기존 행사 {_deleted}건 삭제 후 재수집")
     event_items = fetch_events()
     all_items.extend(event_items)
-
-    # 180일 이내 뉴스만 보존
-    from datetime import timedelta
-    cutoff = (datetime.now() - timedelta(days=180)).strftime("%Y-%m-%d")
-    all_items = [i for i in all_items if not (i.get("published") and i["published"] < cutoff)]
 
     # 산업 뉴스: 원전·원자력 전용(방사선 무관) 기사 제외 후 dedup
     industry = [i for i in all_items if i.get("category") == "산업 뉴스"]
@@ -1413,7 +1402,7 @@ def run_collection() -> dict:
     print(f"  산업 뉴스 dedup: {len(industry_filtered)}건 → {len(industry_deduped)}건")
     all_items = industry_deduped + others
 
-    # 전체 URL 중복 제거
+    # 수집된 항목 내 URL 중복 제거 (같은 수집 회차 내 중복)
     seen_urls = set()
     unique_items = []
     for item in all_items:
@@ -1422,10 +1411,7 @@ def run_collection() -> dict:
         seen_urls.add(item["url"])
         unique_items.append(item)
 
-    # 하루 최대 50건
-    unique_items = unique_items[:50]
-
-    # DB 저장
+    # DB 저장 (INSERT OR IGNORE — URL 기준 중복은 DB 레벨에서 자동 제외)
     added = database.insert_news(unique_items)
     database.log_collection(added, "success", f"총 {len(unique_items)}건 처리, {added}건 신규 저장")
 
