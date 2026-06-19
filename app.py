@@ -102,15 +102,28 @@ def api_read_all():
 
 @app.route("/api/top-issues")
 def api_top_issues():
-    """최근 기사에서 사회적 영향력 점수를 매겨 Top 3 반환"""
+    """당일 수집 기사에서 사회적 영향력 점수를 매겨 Top 3 반환.
+    오늘 수집된 기사가 없으면 최근 7일 이내로 확장."""
     import datetime, re
 
-    # 최근 60건 조회
+    today = datetime.date.today().isoformat()  # "YYYY-MM-DD"
+
     conn = database.get_conn()
+    # 오늘 collected_at 기준 수집분
     rows = conn.execute(
         "SELECT id, title, source, url, published, category, summary "
-        "FROM news ORDER BY collected_at DESC LIMIT 60"
+        "FROM news WHERE DATE(collected_at) = ? "
+        "ORDER BY collected_at DESC",
+        (today,)
     ).fetchall()
+
+    # 오늘 수집분이 없으면 최근 7일로 확장 (서비스 초기 또는 당일 미수집 대비)
+    if not rows:
+        rows = conn.execute(
+            "SELECT id, title, source, url, published, category, summary "
+            "FROM news WHERE collected_at >= datetime('now', '-7 days') "
+            "ORDER BY collected_at DESC LIMIT 100"
+        ).fetchall()
     conn.close()
 
     # 영향력 키워드 가중치
@@ -144,22 +157,11 @@ def api_top_issues():
         "업계 행사":      0.9,
     }
 
-    now = datetime.datetime.now()
-
     def score(row):
         text = ((row["title"] or "") + " " + (row["summary"] or "")).lower()
         kw_score = sum(w for kw, w in KEYWORDS.items() if kw in text) or 1.0
-
-        # 최신성 (7일 이내 = 1.0, 오래될수록 감쇠)
-        try:
-            pub = datetime.datetime.fromisoformat((row["published"] or "")[:10])
-            age_days = max(0, (now - pub).days)
-            recency = max(0.3, 1.0 - age_days * 0.04)
-        except Exception:
-            recency = 0.5
-
         cat_w = CAT_W.get(row["category"] or "", 1.0)
-        return kw_score * recency * cat_w
+        return kw_score * cat_w
 
     scored = sorted(rows, key=score, reverse=True)[:3]
     result = [dict(r) for r in scored]
