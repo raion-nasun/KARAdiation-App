@@ -197,6 +197,86 @@ def is_radiation_related(title: str) -> bool:
     return any(kw.lower() in text for kw in all_keywords)
 
 
+def extract_country(title: str, summary: str = "") -> str:
+    """국제 동향 기사에서 관련 국가명 추출 (첫 번째 매칭 반환)"""
+    text = (title + " " + summary).lower()
+    # 국가명 → 표시 이름 매핑 (빈도 높은 순으로 정렬)
+    COUNTRY_MAP = [
+        # 아시아
+        (["japan", "japanese", "tokyo", "fukushima", "nagasaki", "hiroshima"], "일본"),
+        (["china", "chinese", "beijing", "shanghai"], "중국"),
+        (["south korea", "korean", "seoul", "busan"], "한국"),
+        (["india", "indian", "mumbai", "new delhi"], "인도"),
+        (["taiwan", "taiwanese"], "대만"),
+        (["singapore", "singaporean"], "싱가포르"),
+        (["australia", "australian", "sydney", "melbourne"], "호주"),
+        (["iran", "iranian", "tehran"], "이란"),
+        (["pakistan", "karachi"], "파키스탄"),
+        (["indonesia", "jakarta"], "인도네시아"),
+        (["bangladesh", "dhaka"], "방글라데시"),
+        (["malaysia", "kuala lumpur"], "말레이시아"),
+        (["philippines", "manila"], "필리핀"),
+        (["vietnam", "hanoi", "ho chi minh"], "베트남"),
+        (["thailand", "bangkok"], "태국"),
+        (["cambodia", "phnom penh"], "캄보디아"),
+        (["georgia (country)", "tbilisi"], "조지아"),
+        # 유럽
+        (["france", "french", "paris"], "프랑스"),
+        (["germany", "german", "berlin"], "독일"),
+        (["united kingdom", "u.k.", "uk ", " uk,", "britain", "british", "london", "england"], "영국"),
+        (["russia", "russian", "moscow", "chernobyl", "zaporizhzhia"], "러시아"),
+        (["ukraine", "ukrainian", "kyiv"], "우크라이나"),
+        (["finland", "helsinki"], "핀란드"),
+        (["sweden", "swedish", "stockholm"], "스웨덴"),
+        (["netherlands", "dutch", "amsterdam"], "네덜란드"),
+        (["belgium", "brussels", "belgian"], "벨기에"),
+        (["switzerland", "swiss", "geneva", "lausanne"], "스위스"),
+        (["austria", "austrian", "vienna"], "오스트리아"),
+        (["czech", "prague"], "체코"),
+        (["poland", "polish", "warsaw"], "폴란드"),
+        (["hungary", "budapest"], "헝가리"),
+        (["romania", "bucharest"], "루마니아"),
+        (["slovakia", "bratislava"], "슬로바키아"),
+        (["norway", "norwegian", "oslo"], "노르웨이"),
+        (["spain", "spanish", "madrid"], "스페인"),
+        (["italy", "italian", "rome"], "이탈리아"),
+        (["turkey", "turkish", "ankara"], "튀르키예"),
+        (["belarus", "belarusian", "minsk"], "벨라루스"),
+        (["georgia", "tbilisi"], "조지아"),
+        (["uzbekistan", "tashkent"], "우즈베키스탄"),
+        (["kazakhstan", "astana", "almaty"], "카자흐스탄"),
+        (["kyrgyzstan"], "키르기스스탄"),
+        (["mongolia", "ulaanbaatar"], "몽골"),
+        (["armenia", "yerevan"], "아르메니아"),
+        # 아메리카
+        (["united states", "u.s.", "u.s ", "american ", " us ", "washington", "new york", "los angeles"], "미국"),
+        (["canada", "canadian", "ottawa", "toronto"], "캐나다"),
+        (["brazil", "brazilian", "brasilia"], "브라질"),
+        (["argentina", "buenos aires"], "아르헨티나"),
+        (["chile", "chilean", "santiago"], "칠레"),
+        (["mexico", "mexican"], "멕시코"),
+        # 아프리카/중동
+        (["south africa", "pretoria", "cape town"], "남아프리카"),
+        (["egypt", "cairo"], "이집트"),
+        (["nigeria", "abuja"], "나이지리아"),
+        (["ghana", "accra"], "가나"),
+        (["kenya", "nairobi"], "케냐"),
+        (["saudi arabia", "riyadh"], "사우디아라비아"),
+        (["uae", "dubai", "abu dhabi", "emirates"], "아랍에미리트"),
+        (["qatar", "doha"], "카타르"),
+        (["jordan", "amman"], "요르단"),
+        # 국제기구 (특정 국가 없을 때)
+        (["iaea", "international atomic energy"], "국제(IAEA)"),
+        (["who ", "world health organization"], "국제(WHO)"),
+        (["unscear", "united nations scientific"], "국제(UN)"),
+        (["oecd", "nea "], "국제(OECD)"),
+    ]
+    for keywords, country_name in COUNTRY_MAP:
+        if any(kw in text for kw in keywords):
+            return country_name
+    return ""
+
+
 def detect_region(url: str, source: str = "") -> str:
     """URL/출처 기반 국내/해외 자동 판별"""
     url_l = (url or "").lower()
@@ -272,16 +352,18 @@ def fetch_google_news_rss(query: str, category_hint: str) -> list:
 
             raw_summary = entry.get("summary", "") or ""
             summary = BeautifulSoup(raw_summary, "html.parser").get_text()[:300]
+            cat = auto_category(title, source, category_hint)
+            location = extract_country(title, summary) if cat == "국제 동향" else ""
             items.append({
                 "title": title,
                 "source": source,
                 "url": link,
                 "published": normalize_date(entry),
-                "category": auto_category(title, source, category_hint),
+                "category": cat,
                 "summary": summary,
                 "region": "",
                 "end_date": "",
-                "location": "",
+                "location": location,
             })
     except Exception as e:
         print(f"  [오류] Google News RSS ({query}): {e}")
@@ -319,16 +401,18 @@ def fetch_rss_feed(feed_url: str, source_name: str, category_hint: str = None) -
                 if not is_radiation_related(title):
                     continue
 
+            cat = auto_category(title, source_name, category_hint)
+            location = extract_country(title, summary) if cat == "국제 동향" else ""
             items.append({
                 "title": title,
                 "source": source_name,
                 "url": link,
                 "published": normalize_date(entry),
-                "category": auto_category(title, source_name, category_hint),
+                "category": cat,
                 "summary": summary,
                 "region": "",
                 "end_date": "",
-                "location": "",
+                "location": location,
             })
     except Exception as e:
         print(f"  [오류] RSS ({source_name}): {e}")

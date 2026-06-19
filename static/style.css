@@ -889,6 +889,15 @@ html, body {
 .region-badge.domestic { background: #E3F2FD; color: #0A84FF; }
 .region-badge.overseas { background: #F3E5F5; color: #BF5AF2; }
 
+.country-badge {
+  display: inline-flex; align-items: center;
+  padding: 2px 7px; border-radius: 10px;
+  font-size: 10px; font-weight: 600; letter-spacing: .3px;
+  line-height: 1.5; white-space: nowrap; flex-shrink: 0;
+  background: #E8F5E9; color: #34A853;
+}
+.card-country { margin-top: 5px; }
+
 /* ── 카드 추가 정보 ── */
 .card-extra {
   font-size: 11px; color: var(--text2);

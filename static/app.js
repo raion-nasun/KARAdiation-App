@@ -136,8 +136,11 @@ function makeCard(item) {
   div.dataset.id = item.id;
 
   const isAE = item.category === '국내외 공고' || item.category === '업계 행사';
+  const isIntl = item.category === '국제 동향';
   const regionBadge = (isAE && item.region)
     ? `<span class="region-badge ${item.region === '국내' ? 'domestic' : 'overseas'}">${item.region}</span>` : '';
+  const countryBadge = (isIntl && item.location)
+    ? `<span class="country-badge">🌐 ${esc(item.location)}</span>` : '';
 
   const extraParts = [];
   if (isAE && item.end_date) extraParts.push(`마감 ${esc(item.end_date)}`);
@@ -155,6 +158,7 @@ function makeCard(item) {
       </div>
       <div class="card-title">${esc(item.title)}</div>
       ${item.summary ? `<div class="card-summary">${esc(item.summary)}</div>` : ''}
+      ${countryBadge ? `<div class="card-country">${countryBadge}</div>` : ''}
       ${extraLine}
     </div>
     <div class="card-right">
@@ -184,8 +188,11 @@ async function openDetail(item) {
   document.getElementById('detailHdrCat').textContent = item.category;
 
   const isAE = item.category === '국내외 공고' || item.category === '업계 행사';
+  const isIntl = item.category === '국제 동향';
   const regionBadge = (isAE && item.region)
     ? `<span class="region-badge ${item.region === '국내' ? 'domestic' : 'overseas'}" style="margin-right:6px">${item.region}</span>` : '';
+  const countryBadge = (isIntl && item.location)
+    ? `<span class="country-badge" style="margin-right:6px">🌐 ${esc(item.location)}</span>` : '';
 
   // 기간/장소 정보 블록
   let infoBlock = '';
@@ -209,7 +216,7 @@ async function openDetail(item) {
   const body = document.getElementById('detailBody');
   body.innerHTML = `
     <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:10px">
-      ${regionBadge}<span class="detail-badge cat-badge-${cls}">${item.category}</span>
+      ${regionBadge}${countryBadge}<span class="detail-badge cat-badge-${cls}">${item.category}</span>
     </div>
     <h1 class="detail-title">${esc(item.title)}</h1>
     ${isAE ? infoBlock : `
