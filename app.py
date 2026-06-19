@@ -1,7 +1,7 @@
 """
 방사선 소식 대시보드 - Flask 웹 서버
 """
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, Response
 from apscheduler.schedulers.background import BackgroundScheduler
 import database
 import collector
@@ -52,6 +52,29 @@ HEADERS = {
 @app.route("/")
 def index():
     return render_template("index.html", categories=CATEGORIES)
+
+
+@app.route("/sw.js")
+def service_worker():
+    """sw.js를 동적으로 서빙 — 배포마다 캐시 버전 자동 갱신"""
+    sw_path = os.path.join(os.path.dirname(__file__), "static", "sw.js")
+    try:
+        # app.js·style.css 중 최신 수정 시각을 버전으로 사용
+        version = max(
+            int(os.path.getmtime(os.path.join(os.path.dirname(__file__), "static", "app.js"))),
+            int(os.path.getmtime(os.path.join(os.path.dirname(__file__), "static", "style.css"))),
+        )
+    except Exception:
+        import time
+        version = int(time.time())
+
+    with open(sw_path, encoding="utf-8") as f:
+        content = f.read().replace("{{CACHE_VERSION}}", f"kara-news-{version}")
+
+    return Response(content, mimetype="application/javascript", headers={
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Service-Worker-Allowed": "/",
+    })
 
 
 # ──────────────────────────────────────────
