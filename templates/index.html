@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="KARAdiation">
+<meta name="theme-color" content="#C41230">
+<link rel="manifest" href="/static/manifest.json">
+<link rel="apple-touch-icon" href="/static/images/KARA 로고_로고만.png">
+<title>KARAdiation information</title>
+<link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="/static/tabler-icons.min.css">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ── 스플래시 ── -->
+  <div id="splash">
+    <!-- 배경 링 (전체 스플래시 기준 center) -->
+    <svg class="splash-rings" viewBox="0 0 320 320" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="160" cy="160" r="56"  fill="none" stroke="#E0E0E0" stroke-width="1.2"/>
+      <circle cx="160" cy="160" r="96"  fill="none" stroke="#E8E8E8" stroke-width="1"/>
+      <circle cx="160" cy="160" r="138" fill="none" stroke="#EEEEEE" stroke-width=".9"/>
+      <circle cx="160" cy="160" r="184" fill="none" stroke="#F3F3F3" stroke-width=".8"/>
+      <circle cx="160" cy="160" r="234" fill="none" stroke="#F7F7F7" stroke-width=".7"/>
+      <!-- 6방향 점 (r=96) -->
+      <circle cx="160" cy="64"  r="5"   fill="#C41230" opacity=".28"/>
+      <circle cx="243" cy="112" r="3.5" fill="#0A84FF" opacity=".22"/>
+      <circle cx="243" cy="208" r="3.5" fill="#30D158" opacity=".22"/>
+      <circle cx="160" cy="256" r="5"   fill="#C41230" opacity=".28"/>
+      <circle cx="77"  cy="208" r="3.5" fill="#FF9F0A" opacity=".22"/>
+      <circle cx="77"  cy="112" r="3.5" fill="#BF5AF2" opacity=".22"/>
+    </svg>
+
+    <!-- 메인 콘텐츠 (절대 중앙) -->
+    <div class="splash-content">
+      <div class="splash-logo-wrap">
+        <img class="splash-logo"
+             src="/static/images/KARA 로고_한글 포함.png"
+             onerror="this.style.display='none';document.getElementById('splashFallback').style.display='flex'"
+             alt="KARA 한국방사선진흥협회">
+        <div id="splashFallback" style="display:none;flex-direction:column;align-items:center;gap:4px">
+          <div class="splash-fallback-kara">KARA</div>
+          <div class="splash-fallback-sub">한국방사선진흥협회</div>
+        </div>
+      </div>
+      <div class="splash-name-block">
+        <div class="splash-appname"><span class="splash-kara">KARA</span><span class="splash-diation">diation</span></div>
+        <div class="splash-appsub">information</div>
+      </div>
+      <div class="splash-tagline">방사선 산업 정보 플랫폼</div>
+    </div>
+
+    <!-- 떠다니는 카테고리 칩 -->
+    <div class="splash-chip splash-chip-1"><span class="sc-dot" style="background:#0A84FF"></span>산업 뉴스</div>
+    <div class="splash-chip splash-chip-2"><span class="sc-dot" style="background:#30D158"></span>국내외 공고</div>
+    <div class="splash-chip splash-chip-3"><span class="sc-dot" style="background:#BF5AF2"></span>국제 동향</div>
+    <div class="splash-chip splash-chip-4"><span class="sc-dot" style="background:#FF9F0A"></span>업계 행사</div>
+    <div class="splash-chip splash-chip-5"><span class="sc-dot" style="background:#C41230"></span>KARA 이벤트</div>
+
+    <!-- 하단 로딩 -->
+    <div class="splash-bottom">
+      <div class="splash-loader"><div class="splash-bar"></div></div>
+      <div class="splash-loading-text">Loading...</div>
+    </div>
+
+    <div class="splash-redline"></div>
+  </div>
+
+  <!-- ── 홈 화면 (카테고리 그리드) ── -->
+  <div id="screen-home" class="screen active">
+    <div class="grid-header">
+      <div class="grid-header-top">
+        <img class="grid-header-logo"
+             src="/static/images/KARA 로고_로고만.png"
+             onerror="this.style.display='none';document.getElementById('gridLogoFallback').style.display='block'"
+             alt="KARA">
+        <div id="gridLogoFallback" style="display:none;font-size:20px;font-weight:900;color:#C41230;letter-spacing:2px">KARA</div>
+        <div class="grid-header-titles">
+          <div class="grid-appname"><span class="grid-kara">KARA</span><span class="grid-diation">diation</span></div>
+          <div class="grid-appsub">information</div>
+        </div>
+      </div>
+      <div class="grid-stat-pill" id="homeSubtitle">방사선 산업 소식</div>
+    </div>
+
+    <!-- 스크롤 바디 (검색바 + Top3 + 그리드가 함께 스크롤) -->
+    <div class="home-body">
+      <!-- 검색바 -->
+      <div class="home-search-bar">
+        <div class="home-search-input-wrap">
+          <i class="ti ti-search home-search-ico"></i>
+          <input type="search" id="homeSearchInput" placeholder="방사성의약품, SMR, KARA..."
+                 autocomplete="off" autocorrect="off" spellcheck="false">
+          <button class="home-clear-btn" id="homeClearBtn" onclick="clearHomeSearch()">✕</button>
+        </div>
+      </div>
+
+      <!-- 주요 이슈 Top 3 -->
+      <div class="top-issues-section" id="topIssuesSection">
+        <div class="top-issues-header">
+          <span class="top-issues-title">주요 이슈</span>
+          <span class="top-issues-sub">사회적 영향력 순위</span>
+        </div>
+        <div class="top-issues-list" id="topIssuesList">
+          <div class="top-issues-loading">불러오는 중...</div>
+        </div>
+      </div>
+
+      <!-- 카테고리 그리드 -->
+      <div class="cat-grid" id="catGrid">
+      <div class="cat-grid-card cat-grid-industry" onclick="openCategory('산업 뉴스')">
+        <div class="cat-grid-icon-wrap">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8V6Z"/></svg>
+        </div>
+        <div class="cat-grid-name">산업 뉴스</div>
+        <div class="cat-grid-desc">국내외 방사선 산업 동향</div>
+        <div class="cat-grid-chevron"><i class="ti ti-chevron-right"></i></div>
+      </div>
+      <div class="cat-grid-card cat-grid-kara" onclick="openCategory('KARA 주요이벤트')">
+        <div class="cat-grid-icon-wrap">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        </div>
+        <div class="cat-grid-name">KARA 이벤트</div>
+        <div class="cat-grid-desc">협회 주요 이벤트·공지</div>
+        <div class="cat-grid-chevron"><i class="ti ti-chevron-right"></i></div>
+      </div>
+      <div class="cat-grid-card cat-grid-announce" onclick="openCategory('국내외 공고')">
+        <div class="cat-grid-icon-wrap">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        </div>
+        <div class="cat-grid-name">국내외 공고</div>
+        <div class="cat-grid-desc">방사선 관련 공고·모집</div>
+        <div class="cat-grid-chevron"><i class="ti ti-chevron-right"></i></div>
+      </div>
+      <div class="cat-grid-card cat-grid-event" onclick="openCategory('업계 행사')">
+        <div class="cat-grid-icon-wrap">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        </div>
+        <div class="cat-grid-name">업계 행사</div>
+        <div class="cat-grid-desc">학술대회·세미나·행사</div>
+        <div class="cat-grid-chevron"><i class="ti ti-chevron-right"></i></div>
+      </div>
+      <div class="cat-grid-card cat-grid-intl cat-grid-wide" onclick="openCategory('국제 동향')">
+        <div class="cat-grid-icon-wrap">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        </div>
+        <div class="cat-grid-info">
+          <div class="cat-grid-name">국제 동향</div>
+          <div class="cat-grid-desc">해외 방사선 산업·정책 뉴스</div>
+        </div>
+        <div class="cat-grid-chevron cat-grid-chevron-wide"><i class="ti ti-chevron-right"></i></div>
+      </div>
+    </div><!-- /cat-grid -->
+
+      <!-- 검색 패널 (검색 시 홈바디 위에 덮어씌움) -->
+      <div class="home-search-panel" id="homeSearchPanel">
+        <div class="filter-chips" id="homeSearchFilterChips">
+          <div class="filter-chip active" data-cat="전체">전체</div>
+          <div class="filter-chip" data-cat="산업 뉴스">산업 뉴스</div>
+          <div class="filter-chip" data-cat="KARA 주요이벤트">KARA</div>
+          <div class="filter-chip" data-cat="국내외 공고">공고</div>
+          <div class="filter-chip" data-cat="업계 행사">행사</div>
+          <div class="filter-chip" data-cat="국제 동향">국제</div>
+        </div>
+        <div class="search-results" id="homeSearchResults">
+          <div class="recent-searches" id="recentSearches">
+            <div class="recent-title">최근 검색어</div>
+            <div class="recent-chips" id="recentChips"></div>
+          </div>
+        </div>
+      </div><!-- /home-search-panel -->
+
+    </div><!-- /home-body -->
+  </div>
+
+  <!-- ── 카테고리 뉴스 오버레이 ── -->
+  <div id="categoryOverlay" class="category-overlay">
+    <div class="cat-overlay-header">
+      <button class="btn-back-cat" onclick="closeCategory()">
+        <i class="ti ti-chevron-left"></i>
+      </button>
+      <span class="cat-overlay-title" id="catOverlayTitle"></span>
+      <img class="header-logo" style="height:28px" src="/static/images/KARA 로고_로고만.png"
+           onerror="this.style.display='none'" alt="KARA">
+    </div>
+    <div class="ptr-indicator" id="ptrIndicator">↓ 당겨서 새로고침</div>
+    <div class="feed" id="newsFeed">
+      <div class="empty-state">
+        <div class="empty-icon">📡</div>
+        <div class="empty-title">수집된 뉴스가 없습니다</div>
+        <div class="empty-sub">매일 오전 5시에 자동으로 수집됩니다</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 분석 화면 ── -->
+  <div id="screen-analysis" class="screen">
+    <div class="app-header">
+      <div class="header-left">
+        <div class="page-title">분석</div>
+        <div class="page-sub">카테고리별 현황</div>
+      </div>
+      <img class="header-logo" src="/static/images/KARA 로고_로고만.png"
+           onerror="this.style.display='none'" alt="KARA">
+    </div>
+    <div class="analysis-body" id="analysisBody">
+      <div class="empty-state">
+        <div class="empty-icon">📊</div>
+        <div class="empty-title">통계 불러오는 중...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 즐겨찾기 화면 ── -->
+  <div id="screen-star" class="screen">
+    <div class="app-header">
+      <div class="header-left">
+        <div class="page-title">즐겨찾기</div>
+        <div class="page-sub" id="starSubtitle">저장된 기사</div>
+      </div>
+      <img class="header-logo" src="/static/images/KARA 로고_로고만.png"
+           onerror="this.style.display='none'" alt="KARA">
+    </div>
+    <div class="fav-feed" id="favFeed">
+      <div class="empty-state">
+        <div class="empty-icon">☆</div>
+        <div class="empty-title">즐겨찾기가 없습니다</div>
+        <div class="empty-sub">기사 카드의 ☆ 버튼을 눌러 저장하세요</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 설정 화면 ── -->
+  <div id="screen-settings" class="screen">
+    <div class="app-header">
+      <div class="header-left">
+        <div class="page-title">설정</div>
+      </div>
+      <img class="header-logo" src="/static/images/KARA 로고_로고만.png"
+           onerror="this.style.display='none'" alt="KARA">
+    </div>
+    <div class="settings-body">
+
+      <div class="settings-section">
+        <div class="settings-row">
+          <span class="settings-label">수집 시각</span>
+          <span class="settings-value">매일 오전 05:00</span>
+        </div>
+        <div class="settings-row">
+          <span class="settings-label">수집 주기</span>
+          <span class="settings-value">1일</span>
+        </div>
+        <div class="settings-row">
+          <span class="settings-label">마지막 수집</span>
+          <span class="settings-value" id="lastCollectVal">—</span>
+        </div>
+        <div class="settings-row">
+          <span class="settings-label">수집 기사 수</span>
+          <span class="settings-value" id="totalArticlesVal">—</span>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-row">
+          <span class="settings-label">새 뉴스 알림</span>
+          <label class="toggle-wrap">
+            <input type="checkbox" class="toggle-input" id="notifToggle" checked onchange="toggleNotif(this)">
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+        <div class="settings-row">
+          <span class="settings-label">읽은 기사 흐리게</span>
+          <label class="toggle-wrap">
+            <input type="checkbox" class="toggle-input" id="dimReadToggle" checked onchange="savePref('dimRead', this.checked)">
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+      </div>
+
+      <button class="btn-action secondary" onclick="markAllReadGlobal()">
+        전체 읽음 처리
+      </button>
+
+      <div class="app-info-card">
+        <img class="app-info-logo" src="/static/images/KARA 로고_한글 포함.png"
+             onerror="this.style.display='none'" alt="KARA">
+        <div class="app-info-name">KARAdiation information</div>
+        <div class="app-info-ver">v1.0 · Korean Association for Radiation Application</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── 뉴스 상세 슬라이드 오버레이 ── -->
+  <div class="detail-overlay" id="detailOverlay">
+    <div class="detail-header">
+      <button class="btn-back" onclick="closeDetail()">
+        <i class="ti ti-arrow-left"></i>
+      </button>
+      <span class="detail-hdr-title" id="detailHdrCat"></span>
+      <img class="header-logo" style="height:28px" src="/static/images/KARA 로고_로고만.png"
+           onerror="this.style.display='none'" alt="KARA">
+    </div>
+    <div class="detail-body" id="detailBody"></div>
+    <div class="detail-actions" id="detailActions" style="display:none">
+      <button class="btn-open-url" id="detailUrlBtn">원문 보기 →</button>
+      <button class="btn-star-detail" id="detailStarBtn">☆</button>
+    </div>
+  </div>
+
+  <!-- ── 하단 탭바 ── -->
+  <nav class="bottom-tabs" id="bottomTabs">
+    <button class="tab-btn active" data-tab="home" onclick="switchTab('home')">
+      <i class="ti ti-home"></i>
+      <span class="tab-label">홈</span>
+      <span class="tab-badge" id="unreadBadge" style="display:none"></span>
+    </button>
+    <button class="tab-btn" data-tab="star" onclick="switchTab('star')">
+      <i class="ti ti-star"></i>
+      <span class="tab-label">즐겨찾기</span>
+    </button>
+    <button class="tab-btn" data-tab="analysis" onclick="switchTab('analysis')">
+      <i class="ti ti-chart-bar"></i>
+      <span class="tab-label">분석</span>
+    </button>
+    <button class="tab-btn" data-tab="settings" onclick="switchTab('settings')">
+      <i class="ti ti-settings"></i>
+      <span class="tab-label">설정</span>
+    </button>
+  </nav>
+
+  <!-- ── 토스트 ── -->
+  <div class="collecting-toast" id="toast"></div>
+
+</div>
+
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/static/sw.js').catch(() => {});
+  }
+</script>
+<script src="/static/app.js"></script>
+</body>
+</html>

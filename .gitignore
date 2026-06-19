@@ -1,0 +1,31 @@
+# DB & 수집 데이터
+data/
+daily-notes/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# 환경변수
+.env
+.env.*
+
+# Windows
+*.bat
+Thumbs.db
+Desktop.ini
+
+# 에디터
+.vscode/
+.idea/
+*.md
+!README.md
