@@ -1,6 +1,6 @@
 {
-  "name": "방사선 소식 - KARA",
-  "short_name": "방사선 소식",
+  "name": "KARAdi",
+  "short_name": "KARAdi",
   "description": "한국방사선진흥협회 방사선 소식 뉴스 앱",
   "start_url": "/",
   "display": "standalone",
@@ -9,7 +9,7 @@
   "theme_color": "#C41230",
   "lang": "ko",
   "icons": [
-    { "src": "/static/images/KARA 로고_로고만.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/static/images/KARA 로고_로고만.png", "sizes": "512x512", "type": "image/png" }
+    { "src": "/static/images/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/static/images/icon-512.png", "sizes": "512x512", "type": "image/png" }
   ]
 }
