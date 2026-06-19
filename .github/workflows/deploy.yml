@@ -1,9 +1,7 @@
 name: Deploy to Fly.io
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:  # 수동 실행만 허용 (Fly.io 설정 완료 후 push 트리거로 변경)
 
 jobs:
   deploy:
