@@ -1,19 +1,45 @@
-name: Deploy to Fly.io
+name: Deploy (self-hosted)
 
 on:
-  workflow_dispatch:  # 수동 실행만 허용 (Fly.io 설정 완료 후 push 트리거로 변경)
+  push:
+    branches: [main]
 
 jobs:
   deploy:
-    name: Deploy
-    runs-on: ubuntu-latest
+    name: Deploy to local runner
+    runs-on: self-hosted
 
     steps:
-      - uses: actions/checkout@v4
+      - name: 코드 최신화
+        uses: actions/checkout@v4
+        with:
+          clean: false   # 기존 파일 유지 (DB 등)
 
-      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: 패키지 설치
+        run: pip install -r requirements.txt
 
-      - name: Deploy to Fly.io
-        run: flyctl deploy --remote-only
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      - name: 앱 재시작
+        shell: powershell
+        run: |
+          # 기존 Flask 프로세스 종료
+          Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
+          Start-Sleep -Seconds 1
+
+          # 새 버전 백그라운드 실행
+          $logFile = "$env:USERPROFILE\karadiation_app.log"
+          Start-Process python `
+            -ArgumentList "app.py" `
+            -WorkingDirectory "${{ github.workspace }}" `
+            -RedirectStandardOutput $logFile `
+            -RedirectStandardError $logFile `
+            -NoNewWindow
+          Start-Sleep -Seconds 3
+
+          # 정상 기동 확인
+          try {
+            $r = Invoke-WebRequest -Uri "http://localhost:5000" -TimeoutSec 10 -UseBasicParsing
+            Write-Host "✅ 앱 기동 확인 (HTTP $($r.StatusCode))"
+          } catch {
+            Write-Host "⚠️ 기동 확인 실패 — 로그 확인: $logFile"
+            exit 1
+          }

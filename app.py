@@ -19,7 +19,26 @@ except ImportError:
 
 app = Flask(__name__)
 database.init_db()
-database.migrate_regions()  # 기존 공고/행사 데이터에 국내/해외 region 설정
+database.migrate_regions()
+
+# DB가 비어있으면 시드 데이터 자동 삽입 (Render 등 영구 디스크 없는 환경 대비)
+def _auto_seed():
+    conn = database.get_conn()
+    total = conn.execute("SELECT COUNT(*) FROM news").fetchone()[0]
+    conn.close()
+    if total == 0:
+        print("  [시드] DB가 비어있음 — 업계 행사·국제 동향 자동 시드 시작")
+        try:
+            import seed_events
+        except Exception as e:
+            print(f"  [시드] seed_events 오류: {e}")
+        try:
+            import seed_intl
+        except Exception as e:
+            print(f"  [시드] seed_intl 오류: {e}")
+        print("  [시드] 완료")
+
+_auto_seed()
 
 # ──────────────────────────────────────────
 # 스케줄러 (매일 오전 5시 자동 수집)
