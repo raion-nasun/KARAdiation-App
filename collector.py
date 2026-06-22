@@ -1568,7 +1568,7 @@ def run_collection() -> dict:
     kara_combined = _deduplicate_kara_events(kara_official + kara_campus + kara_ratis + google_kara)
     all_items.extend(kara_combined)
     print(f"    KARA 최종: {len(kara_combined)}건 (dedup 완료)")
-    database.trim_kara_events(max_count=20)
+    database.trim_kara_events(max_count=15)
 
     # 4. 국내외 공고 (실제 공고 전용)
     print("  국내외 공고 수집 중...")
@@ -1631,21 +1631,28 @@ def run_collection() -> dict:
         seen_urls.add(item["url"])
         unique_items.append(item)
 
-    # ── 카테고리별 일일 최대 10건 상한 (KARA 이벤트 제외) ───────────────────
-    DAILY_LIMIT_CATS = {"산업 뉴스", "국제 동향", "국내외 공고", "업계 행사"}
+    # ── 카테고리별 일일 최대 상한 적용 ───────────────────────────────────────
+    DAILY_LIMITS = {
+        "산업 뉴스":    10,
+        "국제 동향":    10,
+        "국내외 공고":  10,
+        "업계 행사":    10,
+        "KARA 주요이벤트": 10,
+    }
     from collections import defaultdict
     cat_counts: dict = defaultdict(int)
     limited_items = []
     for item in unique_items:
         cat = item.get("category", "")
-        if cat not in DAILY_LIMIT_CATS:
-            limited_items.append(item)  # KARA 이벤트 등은 상한 없음
-        elif cat_counts[cat] < 10:
+        limit = DAILY_LIMITS.get(cat)
+        if limit is None:
+            limited_items.append(item)
+        elif cat_counts[cat] < limit:
             limited_items.append(item)
             cat_counts[cat] += 1
     unique_items = limited_items
     for cat, cnt in sorted(cat_counts.items()):
-        print(f"    {cat}: {cnt}건 (상한 10)")
+        print(f"    {cat}: {cnt}건 (상한 {DAILY_LIMITS.get(cat, '-')})")
 
     # DB 저장 (INSERT OR IGNORE — DB 내 URL 중복은 자동 제외)
     added = database.insert_news(unique_items)
