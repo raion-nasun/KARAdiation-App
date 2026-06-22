@@ -14,6 +14,12 @@ import database
 # Obsidian 마크다운 저장 경로 (프로젝트 폴더 내 daily-notes 디렉토리)
 OBSIDIAN_DIR = os.path.join(os.path.dirname(__file__), "daily-notes")
 
+# Render 등 해외 클라우드 환경 감지 — 한국 기관 사이트(IP 차단) 스킵용
+IS_CLOUD = bool(os.environ.get("RENDER") or os.environ.get("RAILWAY_ENVIRONMENT"))
+
+# 한국 기관 사이트 타임아웃 (클라우드: 3초로 빠르게 포기 / 로컬: 15초)
+KR_INST_TIMEOUT = 3 if IS_CLOUD else 15
+
 # ──────────────────────────────────────────
 # 카테고리별 키워드 정의 (엑셀 소스 기반)
 # ──────────────────────────────────────────
@@ -1299,15 +1305,18 @@ def fetch_kara_official() -> list:
     Ty=4(협회동정), Ty=5(사업현황), Ty=6(보도자료)는 전부 포함.
     Ty=1(공지사항)은 KARA 주최 이벤트/대회만 포함.
     채용(Ty=2), 입찰(Ty=3), 회원사채용(Ty=7) 제외.
+    클라우드(해외 IP) 환경에서는 접속 차단으로 스킵.
     """
+    if IS_CLOUD:
+        print("    [스킵] kara.or.kr — 클라우드 환경 해외 IP 차단")
+        return []
     items = []
     BASE = "https://www.koara.or.kr/new"
-    # 메인 페이지에서 최신 항목 파싱
     SOURCES = [
         f"{BASE}/main/main.php",
-        f"{BASE}/notice/notice.php?Ty=1",   # 공지사항 전체 목록
-        f"{BASE}/notice/movement.php?Ty=4", # 협회동정
-        f"{BASE}/notice/report.php?Ty=6",   # 보도자료
+        f"{BASE}/notice/notice.php?Ty=1",
+        f"{BASE}/notice/movement.php?Ty=4",
+        f"{BASE}/notice/report.php?Ty=6",
     ]
     # KARA 이벤트로 분류할 공지 키워드
     KARA_NOTICE_KWS = [
@@ -1384,6 +1393,9 @@ def fetch_kara_campus_events() -> list:
     """KARA Campus(kara-campus.or.kr) 교육 과정 수집.
     실제 강좌/교육 목록만 수집, 네비게이션 항목 제외.
     """
+    if IS_CLOUD:
+        print("    [스킵] kara-campus.or.kr — 클라우드 환경 해외 IP 차단")
+        return []
     items = []
     BASE = "https://kara-campus.or.kr"
     PAGES = [
@@ -1456,6 +1468,9 @@ def fetch_ratis_news() -> list:
     RATIS는 JS 렌더링이 필요해 메인 페이지 직접 스크래핑 불가.
     정적으로 접근 가능한 보고서 목록 페이지만 수집한다.
     """
+    if IS_CLOUD:
+        print("    [스킵] ratis.or.kr — 클라우드 환경 해외 IP 차단")
+        return []
     items = []
     BASE = "https://www.ratis.or.kr"
     PAGES = [
