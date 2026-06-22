@@ -1628,32 +1628,47 @@ def run_collection() -> dict:
     intl_deduped = _deduplicate_industry_news(intl_diverse)
     print(f"  국제 동향 dedup: {len(intl_diverse)}건 → {len(intl_deduped)}건")
 
-    # 향후 6개월 이내 날짜 필터 (업계 행사·국내외 공고 전용)
+    # 날짜 필터 헬퍼
     import datetime as _dt
     _today = _dt.date.today()
-    _six_months = _today + _dt.timedelta(days=183)
+    _six_months_future = _today + _dt.timedelta(days=183)
+    _90days_ago = _today - _dt.timedelta(days=90)
 
-    def _within_6months(item):
+    def _event_active(item):
+        """업계 행사: published(개최일)가 오늘~6개월 후 범위"""
         pub = (item.get("published") or "")[:10]
         try:
-            d = _dt.date.fromisoformat(pub)
-            return _today <= d <= _six_months
+            return _today <= _dt.date.fromisoformat(pub) <= _six_months_future
         except Exception:
-            return True  # 날짜 파싱 불가 시 포함
+            return True
 
-    # 국내외 공고: 향후 6개월 이내 + 동일 사업 공고 중 원본기관 URL 우선
+    def _announce_active(item):
+        """국내외 공고: end_date(마감일)가 오늘 이후이거나,
+        end_date 없으면 최근 90일 내 게시된 공고 포함"""
+        end = (item.get("end_date") or "")[:10]
+        try:
+            return _dt.date.fromisoformat(end) >= _today
+        except Exception:
+            pass
+        pub = (item.get("published") or "")[:10]
+        try:
+            return _dt.date.fromisoformat(pub) >= _90days_ago
+        except Exception:
+            return True
+
+    # 국내외 공고: 마감일 기준 활성 공고만 + 동일 사업 공고 중 원본기관 URL 우선
     announce = [i for i in others if i.get("category") == "국내외 공고"]
     others = [i for i in others if i.get("category") != "국내외 공고"]
-    announce_dated = [i for i in announce if _within_6months(i)]
+    announce_dated = [i for i in announce if _announce_active(i)]
     if len(announce) != len(announce_dated):
-        print(f"  국내외 공고 날짜 필터: {len(announce)}건 → {len(announce_dated)}건 (6개월 초과 제외)")
+        print(f"  국내외 공고 날짜 필터: {len(announce)}건 → {len(announce_dated)}건 (마감 지난 공고 제외)")
     announce_deduped = _deduplicate_announcements(announce_dated)
     print(f"  국내외 공고 dedup: {len(announce_dated)}건 → {len(announce_deduped)}건")
 
-    # 업계 행사: 향후 6개월 이내 + 동일 행사 중 전용 행사 사이트(원본) 우선
+    # 업계 행사: 개최일 기준 향후 6개월 이내 + 동일 행사 중 전용 사이트 우선
     events = [i for i in others if i.get("category") == "업계 행사"]
     others = [i for i in others if i.get("category") != "업계 행사"]
-    events_dated = [i for i in events if _within_6months(i)]
+    events_dated = [i for i in events if _event_active(i)]
     if len(events) != len(events_dated):
         print(f"  업계 행사 날짜 필터: {len(events)}건 → {len(events_dated)}건 (6개월 초과 제외)")
     events_deduped = _deduplicate_events(events_dated)
