@@ -1,6 +1,8 @@
-# 방사선 소식 대시보드
+# KARAdi Info — 방사선 산업 정보 플랫폼
 
-한국방사선진흥협회(KARA) 뉴스레터 제작 및 부서·회원사 정보 공유를 위한 방사선 소식 자동 수집·시각화 웹 앱.
+한국방사선진흥협회(KARA) 방사선 산업 정보를 자동 수집하여 제공하는 PWA 앱.
+
+🔗 **[https://karadiation-app.onrender.com](https://karadiation-app.onrender.com)**
 
 ---
 
@@ -8,44 +10,77 @@
 
 | 기능 | 설명 |
 |------|------|
-| **자동 수집** | 매일 오전 5시 방사선 관련 뉴스 자동 수집 |
-| **5개 카테고리** | 산업 뉴스 / KARA 주요이벤트 / 국내외 공고 / 업계 행사 / 국제 동향 |
-| **키워드 검색** | 제목·출처·요약 전문 검색 |
-| **읽음/즐겨찾기** | 기사별 읽음 표시, 즐겨찾기 저장 |
-| **수동 수집** | "지금 수집" 버튼으로 즉시 최신 뉴스 가져오기 |
-| **카테고리 분포 차트** | 사이드바에서 카테고리별 기사 수 시각화 |
+| 자동 수집 | 매일 오전 05:00 방사선 관련 뉴스 자동 수집 |
+| 5개 카테고리 | 산업 뉴스 / KARA 주요이벤트 / 국내외 공고 / 업계 행사 / 국제 동향 |
+| 검색 | 제목·출처·요약 전문 검색 |
+| 읽음/즐겨찾기 | 기사별 읽음 표시, 즐겨찾기 저장 |
+| AI 요약 | Claude API 기반 기사 요약 |
+| 주요 이슈 | 사회적 영향력 점수 기반 Top 3 자동 선정 |
+| PWA | iOS/Android 홈 화면 설치 지원 |
+
+---
+
+## 수집 규칙 (카테고리별)
+
+| 카테고리 | 1회 수집 상한 | DB 누적 상한 | 우선순위 정렬 |
+|----------|--------------|--------------|---------------|
+| KARA 주요이벤트 | 10건 | 15건 자동 trim | 협회공식→RATIS→Campus→최신순 |
+| 산업 뉴스 | 10건 | — | 최신순 |
+| 국제 동향 | 10건 | — | 최신순 |
+| 업계 행사 | 10건 | — | 최신순 |
+| 국내외 공고 | 10건 | — | 최신순 |
 
 ---
 
 ## 수집 소스
 
-- **Google News RSS** — 방사선, 원자력, 방사성의약품, 동위원소 등 키워드 검색 (무료, API 불필요)
-- **에너지데일리 RSS** — 원자력·방사선 전문 매체
-- **에너지안전신문 RSS** — 방사선 안전 전문 매체
+- **Google News RSS** — 방사선, 원자력, 방사성의약품, 동위원소 등 키워드
+- **에너지데일리 / 에너지안전신문 RSS** — 방사선 전문 매체
 - **World Nuclear News RSS** — 국제 원자력 뉴스
-- **IAEA 보도자료 RSS** — 국제원자력기구 공식 발표
-- **한국방사선진흥협회** — KARA 공식 소식
+- **한국방사선진흥협회** — KARA 공식 소식 (kara.or.kr)
+- **KARA Campus** — 교육 강좌 (kara-campus.or.kr)
+- **RATIS** — 방사선 기술 정보
+- **KEIT / bizinfo** — 국내외 공고
+- **KARP / ANS / EANM** — 업계 행사
 
 ---
 
-## 설치 및 실행
+## 배포 구조
 
-### 1. 최초 설치
 ```
-setup_scheduler.bat  (관리자 권한으로 실행)
+GitHub (raion-nasun/KARAdiation-App, main)
+    ↓ push → 자동 배포
+Render.com
+    ├── Flask 서버 (APScheduler 내장 — 매일 05:00 수집)
+    ├── SQLite DB (data/news.db)
+    └── PWA (manifest.json + sw.js)
 ```
-- Python 패키지 자동 설치
-- Windows 작업 스케줄러에 매일 오전 5시 수집 등록
-- 로그인 시 서버 자동 시작 등록
 
-### 2. 수동 서버 시작
-```
-start.bat
-```
-브라우저에서 http://localhost:5000 접속
+### 코드 수정 → 배포
 
-### 3. 네트워크 공유 (부서원 공동 사용)
-서버 PC의 IP로 접속 가능: `http://[서버IP]:5000`
+```bash
+git add .
+git commit -m "변경 내용"
+git push origin main
+# Render 2~3분 내 자동 배포
+```
+
+### 수동 수집 트리거
+
+```bash
+curl -X POST https://karadiation-app.onrender.com/api/collect \
+     -H "Content-Type: application/json" -d "{}"
+```
+
+---
+
+## 환경 변수 (Render 대시보드 설정)
+
+| 변수 | 설명 |
+|------|------|
+| `ANTHROPIC_API_KEY` | AI 요약 기능용 Claude API 키 |
+| `COLLECT_SECRET` | 수동 수집 엔드포인트 보호 키 (선택) |
+| `DB_PATH` | DB 경로 (기본: `data/news.db`) |
 
 ---
 
@@ -53,32 +88,21 @@ start.bat
 
 ```
 방사선 소식 어플/
-├── app.py          # Flask 웹 서버 (자동 스케줄러 내장)
-├── collector.py    # 뉴스 수집 엔진
-├── database.py     # SQLite DB 관리
-├── start.bat       # 서버 시작 단축 실행
-├── setup_scheduler.bat  # Windows 작업 스케줄러 등록
+├── app.py              # Flask 서버 + APScheduler
+├── collector.py        # 뉴스 수집 엔진
+├── database.py         # SQLite DB 관리
+├── seed_events.py      # 초기 시드 데이터 (업계 행사)
+├── seed_intl.py        # 초기 시드 데이터 (국제 동향)
 ├── requirements.txt
 ├── static/
 │   ├── style.css
-│   └── app.js
+│   ├── app.js
+│   ├── sw.js           # Service Worker (PWA)
+│   ├── manifest.json   # PWA 매니페스트
+│   └── images/         # 아이콘 (icon-192, icon-512, apple-touch-icon)
 ├── templates/
 │   └── index.html
-└── data/
-    └── news.db     # 수집된 뉴스 데이터 (자동 생성)
+├── data/
+│   └── news.db         # SQLite DB (자동 생성)
+└── daily-notes/        # 일별 수집 노트 (Obsidian)
 ```
-
----
-
-## 키워드 확장
-
-`collector.py`의 `CATEGORY_KEYWORDS` 딕셔너리와 `GOOGLE_NEWS_QUERIES` 리스트를 수정하여 수집 키워드와 카테고리를 자유롭게 추가할 수 있습니다.
-
----
-
-## 토큰 소비 최적화
-
-- AI API를 전혀 사용하지 않음 → **비용 제로**
-- RSS·웹 스크래핑만으로 수집 (Google News RSS 무료)
-- 일 1회(오전 5시) 수집으로 서버 부하 최소화
-- 180일 이전 기사 자동 삭제로 DB 경량 유지
