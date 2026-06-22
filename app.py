@@ -210,6 +210,30 @@ def api_top_issues():
     return jsonify(result)
 
 
+@app.route("/api/push-news", methods=["POST"])
+def api_push_news():
+    """로컬 수집 결과를 Render DB에 푸시 — COLLECT_SECRET 필수"""
+    secret = os.environ.get("COLLECT_SECRET", "")
+    if not secret or request.json.get("key") != secret:
+        return jsonify({"error": "unauthorized"}), 403
+    items = request.json.get("items", [])
+    if not items:
+        return jsonify({"error": "items 없음"}), 400
+    try:
+        added = database.insert_news(items)
+        database.log_collection(added, "push", f"로컬 푸시 {len(items)}건 수신, {added}건 신규")
+        # 수신 후 trim 실행
+        database.trim_expired_events()
+        database.trim_kara_events(max_count=15)
+        database.trim_category("산업 뉴스",   max_count=10)
+        database.trim_category("국제 동향",   max_count=10)
+        database.trim_category("업계 행사",   max_count=10)
+        database.trim_category("국내외 공고", max_count=10)
+        return jsonify({"ok": True, "added": added, "received": len(items)})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/reset-db", methods=["POST"])
 def api_reset_db():
     """DB 전체 초기화 — COLLECT_SECRET 필수"""
