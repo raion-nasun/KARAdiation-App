@@ -74,95 +74,101 @@ html, body {
   position: absolute;
   top: 50%; left: 50%;
   transform: translate(-50%, -50%);
-  width: min(520px, 140vw); height: min(520px, 140vw);
+  width: min(580px, 155vw); height: min(580px, 155vw);
   pointer-events: none;
-  opacity: 1;
 }
 
-/* 콘텐츠 — 정중앙 */
+/* 콘텐츠 — 로딩바 여백 감안해 약간 위 */
 .splash-content {
   position: absolute;
-  top: 46%; left: 50%;
+  top: 44%; left: 50%;
   transform: translate(-50%, -50%);
   display: flex; flex-direction: column;
   align-items: center;
   z-index: 2;
   width: 100%;
-  padding: 0 32px;
-  animation: splashFadeUp .7s ease both;
+  padding: 0 36px;
+  animation: splashFadeUp .8s ease both;
 }
 @keyframes splashFadeUp {
-  from { opacity: 0; transform: translate(-50%, calc(-50% + 12px)); }
+  from { opacity: 0; transform: translate(-50%, calc(-50% + 16px)); }
   to   { opacity: 1; transform: translate(-50%, -50%); }
 }
 
-/* KARA 로고 — 흰색 필터로 변환, 배경 없음 */
+/* KARA 로고 */
 .splash-logo-wrap {
   display: flex; align-items: center; justify-content: center;
-  margin-bottom: 28px;
+  margin-bottom: 8px;
 }
 .splash-logo {
-  height: 48px; object-fit: contain;
+  height: 52px; object-fit: contain;
   filter: brightness(0) invert(1);
-  opacity: 0.92;
+  opacity: 0.90;
 }
 .splash-fallback-kara {
-  font-size: 28px; font-weight: 900; color: #fff; letter-spacing: 3px;
+  font-size: 30px; font-weight: 900; color: #fff; letter-spacing: 3px;
 }
 .splash-fallback-sub {
   font-size: 11px; color: rgba(255,255,255,0.65); letter-spacing: .3px;
 }
 
+/* 로고 아래 얇은 구분선 */
+.splash-divider {
+  width: 40px; height: 1px;
+  background: rgba(255,255,255,0.3);
+  margin: 22px 0 24px;
+}
+
 /* 앱 이름 */
 .splash-name-block {
   display: flex; flex-direction: column; align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 22px;
 }
 .splash-kara    { color: #fff; }
-.splash-diation { color: rgba(255,255,255,0.75); }
+.splash-diation { color: rgba(255,255,255,0.72); }
 .splash-appname {
-  font-size: 38px; font-weight: 800;
-  letter-spacing: -1.5px; line-height: 1;
+  font-size: 40px; font-weight: 800;
+  letter-spacing: -2px; line-height: 1;
 }
 .splash-appsub {
   font-size: 11px; font-weight: 400;
-  color: rgba(255,255,255,0.55);
-  letter-spacing: 7px; text-transform: lowercase;
-  margin-top: 10px;
+  color: rgba(255,255,255,0.50);
+  letter-spacing: 8px; text-transform: lowercase;
+  margin-top: 12px;
 }
 
 /* 태그라인 */
 .splash-tagline {
   font-size: 12px;
-  color: rgba(255,255,255,0.7);
-  border: 1px solid rgba(255,255,255,0.25);
+  color: rgba(255,255,255,0.72);
+  border: 1px solid rgba(255,255,255,0.22);
   border-radius: 20px;
-  padding: 6px 20px;
-  letter-spacing: .5px;
-  background: rgba(255,255,255,0.08);
+  padding: 7px 22px;
+  letter-spacing: .6px;
+  background: rgba(255,255,255,0.07);
 }
 
 /* 하단 로딩 */
 .splash-bottom {
-  position: absolute; bottom: calc(var(--safe-bottom) + 36px);
+  position: absolute; bottom: calc(var(--safe-bottom) + 40px);
   left: 0; right: 0;
-  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
   z-index: 2;
 }
 .splash-loader {
-  width: 80px; height: 2px;
-  background: rgba(255,255,255,0.2); border-radius: 2px; overflow: hidden;
+  width: 88px; height: 1.5px;
+  background: rgba(255,255,255,0.18); border-radius: 2px; overflow: hidden;
 }
 .splash-bar {
   height: 100%; width: 0;
-  background: rgba(255,255,255,0.85);
+  background: rgba(255,255,255,0.80);
   border-radius: 2px;
-  animation: loadbar 1.8s ease-in-out forwards;
+  animation: loadbar 1.9s ease-in-out forwards;
 }
-@keyframes loadbar { 0%{width:0} 60%{width:70%} 100%{width:100%} }
+@keyframes loadbar { 0%{width:0} 60%{width:68%} 100%{width:100%} }
 .splash-loading-text {
-  font-size: 10px; color: rgba(255,255,255,0.45);
-  letter-spacing: 3px; text-transform: uppercase;
+  font-size: 10px; color: rgba(255,255,255,0.38);
+  letter-spacing: 3.5px; text-transform: uppercase;
 }
 
 /* ── 홈 바디 (단일 스크롤 영역) ── */
