@@ -19,24 +19,20 @@
 
   <!-- ── 스플래시 ── -->
   <div id="splash">
-    <!-- 배경 링 (전체 스플래시 기준 center) -->
-    <svg class="splash-rings" viewBox="0 0 320 320" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="160" cy="160" r="56"  fill="none" stroke="#E0E0E0" stroke-width="1.2"/>
-      <circle cx="160" cy="160" r="96"  fill="none" stroke="#E8E8E8" stroke-width="1"/>
-      <circle cx="160" cy="160" r="138" fill="none" stroke="#EEEEEE" stroke-width=".9"/>
-      <circle cx="160" cy="160" r="184" fill="none" stroke="#F3F3F3" stroke-width=".8"/>
-      <circle cx="160" cy="160" r="234" fill="none" stroke="#F7F7F7" stroke-width=".7"/>
-      <!-- 6방향 점 (r=96) -->
-      <circle cx="160" cy="64"  r="5"   fill="#C41230" opacity=".28"/>
-      <circle cx="243" cy="112" r="3.5" fill="#0A84FF" opacity=".22"/>
-      <circle cx="243" cy="208" r="3.5" fill="#30D158" opacity=".22"/>
-      <circle cx="160" cy="256" r="5"   fill="#C41230" opacity=".28"/>
-      <circle cx="77"  cy="208" r="3.5" fill="#FF9F0A" opacity=".22"/>
-      <circle cx="77"  cy="112" r="3.5" fill="#BF5AF2" opacity=".22"/>
+    <!-- 배경: 원자 궤도 3개 (아이콘과 동일 컨셉) -->
+    <svg class="splash-rings" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+      <g transform="translate(200,200)">
+        <ellipse rx="155" ry="58" fill="none" stroke="rgba(255,255,255,0.10)" stroke-width="1.2"/>
+        <ellipse rx="155" ry="58" fill="none" stroke="rgba(255,255,255,0.10)" stroke-width="1.2" transform="rotate(60)"/>
+        <ellipse rx="155" ry="58" fill="none" stroke="rgba(255,255,255,0.10)" stroke-width="1.2" transform="rotate(120)"/>
+        <circle r="16" fill="rgba(255,255,255,0.12)"/>
+        <circle r="8"  fill="rgba(255,255,255,0.20)"/>
+      </g>
     </svg>
 
-    <!-- 메인 콘텐츠 (절대 중앙) -->
+    <!-- 메인 콘텐츠 -->
     <div class="splash-content">
+      <!-- KARA 로고 (흰 카드 위에) -->
       <div class="splash-logo-wrap">
         <img class="splash-logo"
              src="/static/images/KARA 로고_한글 포함.png"
@@ -47,27 +43,22 @@
           <div class="splash-fallback-sub">한국방사선진흥협회</div>
         </div>
       </div>
+
+      <!-- 앱 이름 -->
       <div class="splash-name-block">
         <div class="splash-appname"><span class="splash-kara">KARA</span><span class="splash-diation">diation</span></div>
         <div class="splash-appsub">information</div>
       </div>
+
+      <!-- 태그라인 -->
       <div class="splash-tagline">방사선 산업 정보 플랫폼</div>
     </div>
-
-    <!-- 떠다니는 카테고리 칩 -->
-    <div class="splash-chip splash-chip-1"><span class="sc-dot" style="background:#0A84FF"></span>산업 뉴스</div>
-    <div class="splash-chip splash-chip-2"><span class="sc-dot" style="background:#30D158"></span>국내외 공고</div>
-    <div class="splash-chip splash-chip-3"><span class="sc-dot" style="background:#BF5AF2"></span>국제 동향</div>
-    <div class="splash-chip splash-chip-4"><span class="sc-dot" style="background:#FF9F0A"></span>업계 행사</div>
-    <div class="splash-chip splash-chip-5"><span class="sc-dot" style="background:#C41230"></span>KARA 이벤트</div>
 
     <!-- 하단 로딩 -->
     <div class="splash-bottom">
       <div class="splash-loader"><div class="splash-bar"></div></div>
-      <div class="splash-loading-text">Loading...</div>
+      <div class="splash-loading-text">Loading</div>
     </div>
-
-    <div class="splash-redline"></div>
   </div>
 
   <!-- ── 홈 화면 (카테고리 그리드) ── -->

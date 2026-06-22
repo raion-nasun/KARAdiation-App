@@ -63,122 +63,107 @@ html, body {
 /* ── 스플래시 ── */
 #splash {
   position: absolute; inset: 0; z-index: 999;
-  background: #fff;
-  transition: opacity .45s ease;
+  background: linear-gradient(160deg, #780010 0%, #B0001C 55%, #C41230 100%);
+  transition: opacity .5s ease;
   overflow: hidden;
 }
 #splash.hidden { opacity: 0; pointer-events: none; }
 
-/* 상단·하단 레드 라인 */
-#splash::before {
-  content: ''; position: absolute; top: 0; left: 0; right: 0;
-  height: 3px; background: var(--red); z-index: 2;
-}
-.splash-redline {
-  position: absolute; bottom: 0; left: 0; right: 0;
-  height: 3px; background: var(--red);
-}
-
-/* 링 SVG — 콘텐츠와 같은 중심점 */
+/* 원자 궤도 배경 SVG */
 .splash-rings {
   position: absolute;
-  top: 46%; left: 50%;
+  top: 50%; left: 50%;
   transform: translate(-50%, -50%);
-  width: min(500px, 135vw); height: min(500px, 135vw);
+  width: min(520px, 140vw); height: min(520px, 140vw);
   pointer-events: none;
+  opacity: 1;
 }
 
-/* 콘텐츠 — 화면 정중앙 (로딩바 무게 보정 위해 약간 위) */
+/* 콘텐츠 — 정중앙 */
 .splash-content {
   position: absolute;
   top: 46%; left: 50%;
   transform: translate(-50%, -50%);
   display: flex; flex-direction: column;
   align-items: center;
-  z-index: 1;
+  z-index: 2;
   width: 100%;
-  padding: 0 24px;
+  padding: 0 32px;
+  animation: splashFadeUp .7s ease both;
 }
+@keyframes splashFadeUp {
+  from { opacity: 0; transform: translate(-50%, calc(-50% + 12px)); }
+  to   { opacity: 1; transform: translate(-50%, -50%); }
+}
+
+/* KARA 로고 — 흰 카드 위에 얹어 가독성 확보 */
 .splash-logo-wrap {
+  background: rgba(255,255,255,0.96);
+  border-radius: 16px;
+  padding: 14px 24px;
   display: flex; align-items: center; justify-content: center;
-  margin-bottom: 20px;
+  margin-bottom: 28px;
 }
 .splash-logo {
-  height: 48px; object-fit: contain;
+  height: 44px; object-fit: contain;
 }
 .splash-fallback-kara {
-  font-size: 32px; font-weight: 900; color: var(--red); letter-spacing: 3px;
+  font-size: 28px; font-weight: 900; color: var(--red); letter-spacing: 3px;
 }
 .splash-fallback-sub {
-  font-size: 12px; color: var(--text2); letter-spacing: .3px;
+  font-size: 11px; color: #555; letter-spacing: .3px;
 }
+
+/* 앱 이름 */
 .splash-name-block {
   display: flex; flex-direction: column; align-items: center;
-  margin-bottom: 18px;
+  margin-bottom: 20px;
 }
-.splash-kara    { color: var(--red); }
-.splash-diation { color: var(--text1); }
+.splash-kara    { color: #fff; }
+.splash-diation { color: rgba(255,255,255,0.75); }
 .splash-appname {
-  font-size: 36px; font-weight: 800;
+  font-size: 38px; font-weight: 800;
   letter-spacing: -1.5px; line-height: 1;
 }
 .splash-appsub {
-  font-size: 12px; font-weight: 400; color: var(--text3);
-  letter-spacing: 6px; text-transform: lowercase;
-  margin-top: 8px;
-}
-.splash-tagline {
-  font-size: 12px; color: var(--text2);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 6px 18px; letter-spacing: .3px;
+  font-size: 11px; font-weight: 400;
+  color: rgba(255,255,255,0.55);
+  letter-spacing: 7px; text-transform: lowercase;
+  margin-top: 10px;
 }
 
-/* 카테고리 칩 */
-.splash-chip {
-  position: absolute; z-index: 1;
-  background: #fff;
-  border: 1px solid rgba(0,0,0,.09);
+/* 태그라인 */
+.splash-tagline {
+  font-size: 12px;
+  color: rgba(255,255,255,0.7);
+  border: 1px solid rgba(255,255,255,0.25);
   border-radius: 20px;
-  padding: 7px 14px;
-  font-size: 11.5px; font-weight: 500; color: var(--text2);
-  white-space: nowrap;
-  box-shadow: 0 2px 10px rgba(0,0,0,.07);
-  animation: chipFade .6s ease both;
+  padding: 6px 20px;
+  letter-spacing: .5px;
+  background: rgba(255,255,255,0.08);
 }
-@keyframes chipFade {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.sc-dot {
-  display: inline-block; width: 7px; height: 7px; border-radius: 50%;
-  margin-right: 6px; flex-shrink: 0; vertical-align: middle;
-}
-.splash-chip-1 { top: 14%; left: 5%;  animation-delay: .3s; }
-.splash-chip-2 { top: 14%; right: 3%; animation-delay: .45s; }
-.splash-chip-3 { bottom: 24%; left: 4%; animation-delay: .55s; }
-.splash-chip-4 { bottom: 24%; right: 3%; animation-delay: .65s; }
-.splash-chip-5 { bottom: 14%; left: 50%; transform: translateX(-50%); animation-delay: .75s; }
 
 /* 하단 로딩 */
 .splash-bottom {
-  position: absolute; bottom: calc(var(--safe-bottom) + 32px);
+  position: absolute; bottom: calc(var(--safe-bottom) + 36px);
   left: 0; right: 0;
   display: flex; flex-direction: column; align-items: center; gap: 10px;
-  z-index: 1;
+  z-index: 2;
 }
 .splash-loader {
-  width: 72px; height: 2px;
-  background: #e8e8e8; border-radius: 2px; overflow: hidden;
+  width: 80px; height: 2px;
+  background: rgba(255,255,255,0.2); border-radius: 2px; overflow: hidden;
 }
 .splash-bar {
-  height: 100%; width: 0; background: var(--red);
+  height: 100%; width: 0;
+  background: rgba(255,255,255,0.85);
   border-radius: 2px;
   animation: loadbar 1.8s ease-in-out forwards;
 }
 @keyframes loadbar { 0%{width:0} 60%{width:70%} 100%{width:100%} }
 .splash-loading-text {
-  font-size: 10px; color: var(--text3); letter-spacing: 2px; text-transform: uppercase;
+  font-size: 10px; color: rgba(255,255,255,0.45);
+  letter-spacing: 3px; text-transform: uppercase;
 }
 
 /* ── 홈 바디 (단일 스크롤 영역) ── */
