@@ -1,6 +1,6 @@
 {
-  "name": "KARAdi",
-  "short_name": "KARAdi",
+  "name": "KARAdi Info",
+  "short_name": "KARAdi Info",
   "description": "한국방사선진흥협회 방사선 소식 뉴스 앱",
   "start_url": "/",
   "display": "standalone",
