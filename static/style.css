@@ -64,37 +64,43 @@ html, body {
 #splash {
   position: absolute; inset: 0; z-index: 999;
   background: linear-gradient(160deg, #780010 0%, #B0001C 55%, #C41230 100%);
+  display: flex; flex-direction: column;
   transition: opacity .5s ease;
   overflow: hidden;
 }
 #splash.hidden { opacity: 0; pointer-events: none; }
 
-/* 원자 궤도 배경 SVG — 화면 하단 고정 */
-.splash-rings {
-  position: absolute;
-  bottom: -14%;
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(640px, 168vw);
-  height: min(640px, 168vw);
-  pointer-events: none;
-}
-
-/* 콘텐츠 — 상단 중심으로 배치 */
+/* 콘텐츠 — flex 영역 위쪽 차지, 링과 절대 분리 */
 .splash-content {
-  position: absolute;
-  top: 42%; left: 50%;
-  transform: translate(-50%, -50%);
+  flex: 1;
   display: flex; flex-direction: column;
-  align-items: center;
-  z-index: 2;
-  width: 100%;
+  align-items: center; justify-content: center;
   padding: 0 36px;
+  padding-top: calc(var(--safe-top) + 16px);
+  padding-bottom: 16px;
+  z-index: 2;
   animation: splashFadeUp .8s ease both;
 }
 @keyframes splashFadeUp {
-  from { opacity: 0; transform: translate(-50%, calc(-50% + 16px)); }
-  to   { opacity: 1; transform: translate(-50%, -50%); }
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* 원자 궤도 — 하단 전용 영역에 클립 */
+.splash-rings-wrap {
+  height: 38vh;
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+}
+.splash-rings {
+  position: absolute;
+  bottom: -12%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(620px, 164vw);
+  height: min(620px, 164vw);
+  pointer-events: none;
 }
 
 /* KARA 로고 */
