@@ -260,6 +260,25 @@ def trim_category(category: str, max_count: int):
         print(f"    [{category}] 초과 {deleted}건 삭제 (최대 {max_count}건 유지)")
 
 
+def trim_expired_events():
+    """업계 행사·국내외 공고 중 오늘 이전 날짜 항목 자동 삭제"""
+    import datetime
+    today = datetime.date.today().isoformat()
+    conn = get_conn()
+    conn.execute("""
+        DELETE FROM news
+        WHERE category IN ('업계 행사', '국내외 공고')
+          AND published IS NOT NULL
+          AND published != ''
+          AND DATE(published) < ?
+    """, (today,))
+    deleted = conn.total_changes
+    conn.commit()
+    conn.close()
+    if deleted:
+        print(f"    만료 행사/공고 {deleted}건 삭제 (오늘 이전 날짜)")
+
+
 def mark_all_read(category=None):
     conn = get_conn()
     if category and category != "전체":

@@ -1568,6 +1568,7 @@ def run_collection() -> dict:
     kara_combined = _deduplicate_kara_events(kara_official + kara_campus + kara_ratis + google_kara)
     all_items.extend(kara_combined)
     print(f"    KARA 최종: {len(kara_combined)}건 (dedup 완료)")
+    database.trim_expired_events()
     database.trim_kara_events(max_count=15)
     database.trim_category("산업 뉴스",    max_count=10)
     database.trim_category("국제 동향",    max_count=10)
@@ -1612,17 +1613,36 @@ def run_collection() -> dict:
     intl_deduped = _deduplicate_industry_news(intl_diverse)
     print(f"  국제 동향 dedup: {len(intl_diverse)}건 → {len(intl_deduped)}건")
 
-    # 국내외 공고: 동일 사업 공고 중 원본기관 URL 우선
+    # 향후 6개월 이내 날짜 필터 (업계 행사·국내외 공고 전용)
+    import datetime as _dt
+    _today = _dt.date.today()
+    _six_months = _today + _dt.timedelta(days=183)
+
+    def _within_6months(item):
+        pub = (item.get("published") or "")[:10]
+        try:
+            d = _dt.date.fromisoformat(pub)
+            return _today <= d <= _six_months
+        except Exception:
+            return True  # 날짜 파싱 불가 시 포함
+
+    # 국내외 공고: 향후 6개월 이내 + 동일 사업 공고 중 원본기관 URL 우선
     announce = [i for i in others if i.get("category") == "국내외 공고"]
     others = [i for i in others if i.get("category") != "국내외 공고"]
-    announce_deduped = _deduplicate_announcements(announce)
-    print(f"  국내외 공고 dedup: {len(announce)}건 → {len(announce_deduped)}건")
+    announce_dated = [i for i in announce if _within_6months(i)]
+    if len(announce) != len(announce_dated):
+        print(f"  국내외 공고 날짜 필터: {len(announce)}건 → {len(announce_dated)}건 (6개월 초과 제외)")
+    announce_deduped = _deduplicate_announcements(announce_dated)
+    print(f"  국내외 공고 dedup: {len(announce_dated)}건 → {len(announce_deduped)}건")
 
-    # 업계 행사: 동일 행사 중 전용 행사 사이트(원본) 우선
+    # 업계 행사: 향후 6개월 이내 + 동일 행사 중 전용 행사 사이트(원본) 우선
     events = [i for i in others if i.get("category") == "업계 행사"]
     others = [i for i in others if i.get("category") != "업계 행사"]
-    events_deduped = _deduplicate_events(events)
-    print(f"  업계 행사 dedup: {len(events)}건 → {len(events_deduped)}건")
+    events_dated = [i for i in events if _within_6months(i)]
+    if len(events) != len(events_dated):
+        print(f"  업계 행사 날짜 필터: {len(events)}건 → {len(events_dated)}건 (6개월 초과 제외)")
+    events_deduped = _deduplicate_events(events_dated)
+    print(f"  업계 행사 dedup: {len(events_dated)}건 → {len(events_deduped)}건")
 
     all_items = industry_deduped + intl_deduped + announce_deduped + events_deduped + others
 
