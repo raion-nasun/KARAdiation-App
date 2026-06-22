@@ -225,8 +225,6 @@ def api_push_news():
         # 수신 후 trim 실행
         database.trim_expired_events()
         database.trim_kara_events(max_count=15)
-        database.trim_category("산업 뉴스",   max_count=10)
-        database.trim_category("국제 동향",   max_count=10)
         database.trim_category("업계 행사",   max_count=30)
         database.trim_category("국내외 공고", max_count=30)
         return jsonify({"ok": True, "added": added, "received": len(items)})
