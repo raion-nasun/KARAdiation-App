@@ -1587,8 +1587,8 @@ def run_collection() -> dict:
     database.trim_kara_events(max_count=15)
     database.trim_category("산업 뉴스",    max_count=10)
     database.trim_category("국제 동향",    max_count=10)
-    database.trim_category("업계 행사",    max_count=10)
-    database.trim_category("국내외 공고",  max_count=10)
+    database.trim_category("업계 행사",    max_count=30)
+    database.trim_category("국내외 공고",  max_count=30)
 
     # 4. 국내외 공고 (실제 공고 전용)
     print("  국내외 공고 수집 중...")

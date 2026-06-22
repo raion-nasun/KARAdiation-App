@@ -2,7 +2,7 @@
 로컬 수집 → Render 푸시 스크립트
 - 로컬 PC에서 실행: 한국 기관 사이트(kara.or.kr, campus, ratis) 포함 전체 수집
 - 수집 결과를 Render 서버 DB로 전송
-- Windows 작업 스케줄러로 매일 오전 5시 자동 실행 권장
+- Windows 작업 스케줄러로 매일 오전 9시 자동 실행 권장
 
 실행 방법:
     python local_push.py

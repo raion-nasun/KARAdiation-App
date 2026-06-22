@@ -47,7 +47,7 @@ scheduler = BackgroundScheduler(timezone="Asia/Seoul")
 scheduler.add_job(
     collector.run_collection,
     trigger="cron",
-    hour=5,
+    hour=9,
     minute=0,
     id="daily_collect",
 )
@@ -227,8 +227,8 @@ def api_push_news():
         database.trim_kara_events(max_count=15)
         database.trim_category("산업 뉴스",   max_count=10)
         database.trim_category("국제 동향",   max_count=10)
-        database.trim_category("업계 행사",   max_count=10)
-        database.trim_category("국내외 공고", max_count=10)
+        database.trim_category("업계 행사",   max_count=30)
+        database.trim_category("국내외 공고", max_count=30)
         return jsonify({"ok": True, "added": added, "received": len(items)})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
