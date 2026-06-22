@@ -101,9 +101,9 @@ html, body {
   margin-bottom: 8px;
 }
 .splash-logo {
-  height: 52px; object-fit: contain;
+  height: 68px; object-fit: contain;
   filter: brightness(0) invert(1);
-  opacity: 0.90;
+  opacity: 0.92;
 }
 .splash-fallback-kara {
   font-size: 30px; font-weight: 900; color: #fff; letter-spacing: 3px;
