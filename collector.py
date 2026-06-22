@@ -1569,6 +1569,10 @@ def run_collection() -> dict:
     all_items.extend(kara_combined)
     print(f"    KARA 최종: {len(kara_combined)}건 (dedup 완료)")
     database.trim_kara_events(max_count=15)
+    database.trim_category("산업 뉴스",    max_count=10)
+    database.trim_category("국제 동향",    max_count=10)
+    database.trim_category("업계 행사",    max_count=10)
+    database.trim_category("국내외 공고",  max_count=10)
 
     # 4. 국내외 공고 (실제 공고 전용)
     print("  국내외 공고 수집 중...")

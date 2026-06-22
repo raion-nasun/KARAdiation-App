@@ -210,6 +210,23 @@ def api_top_issues():
     return jsonify(result)
 
 
+@app.route("/api/reset-db", methods=["POST"])
+def api_reset_db():
+    """DB 전체 초기화 — COLLECT_SECRET 필수"""
+    secret = os.environ.get("COLLECT_SECRET", "")
+    if not secret or request.json.get("key") != secret:
+        return jsonify({"error": "unauthorized"}), 403
+    try:
+        conn = database.get_conn()
+        conn.execute("DELETE FROM news")
+        conn.execute("DELETE FROM collect_log")
+        conn.commit()
+        conn.close()
+        return jsonify({"ok": True, "message": "DB 초기화 완료"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/collect", methods=["POST"])
 def api_collect():
     """수동 수집 트리거 — 관리자용 (SECRET_KEY 환경변수로 보호)"""

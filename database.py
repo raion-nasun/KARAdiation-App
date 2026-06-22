@@ -213,10 +213,9 @@ def get_news_url(news_id):
     return dict(row) if row else None
 
 
-def trim_kara_events(max_count: int = 20):
+def trim_kara_events(max_count: int = 15):
     """KARA 주요이벤트를 최신순 max_count건만 유지, 초과분 자동 삭제"""
     conn = get_conn()
-    # 소스 우선순위(협회→RATIS→Campus) + 최신순으로 정렬한 뒤 max_count 초과 id 삭제
     conn.execute(f"""
         DELETE FROM news
         WHERE category = 'KARA 주요이벤트'
@@ -239,6 +238,26 @@ def trim_kara_events(max_count: int = 20):
     conn.close()
     if deleted:
         print(f"    KARA 이벤트 초과 {deleted}건 삭제 (최대 {max_count}건 유지)")
+
+
+def trim_category(category: str, max_count: int):
+    """일반 카테고리를 최신순 max_count건만 유지, 초과분 자동 삭제"""
+    conn = get_conn()
+    conn.execute(f"""
+        DELETE FROM news
+        WHERE category = ?
+          AND id NOT IN (
+            SELECT id FROM news
+            WHERE category = ?
+            ORDER BY published DESC, collected_at DESC
+            LIMIT {max_count}
+          )
+    """, (category, category))
+    deleted = conn.total_changes
+    conn.commit()
+    conn.close()
+    if deleted:
+        print(f"    [{category}] 초과 {deleted}건 삭제 (최대 {max_count}건 유지)")
 
 
 def mark_all_read(category=None):
