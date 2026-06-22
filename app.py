@@ -210,6 +210,19 @@ def api_top_issues():
     return jsonify(result)
 
 
+@app.route("/api/collect", methods=["POST"])
+def api_collect():
+    """수동 수집 트리거 — 관리자용 (SECRET_KEY 환경변수로 보호)"""
+    secret = os.environ.get("COLLECT_SECRET", "")
+    if secret and request.json.get("key") != secret:
+        return jsonify({"error": "unauthorized"}), 403
+    try:
+        collector.run_collection()
+        return jsonify({"ok": True, "message": "수집 완료"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/summarize/<int:news_id>")
 def api_summarize(news_id):
     """AI 요약 — 캐시 우선, 없으면 Claude API 호출"""
