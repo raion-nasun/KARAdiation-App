@@ -1719,6 +1719,7 @@ def run_collection() -> dict:
 
     # Obsidian 마크다운 저장
     save_obsidian_note(unique_items, added)
+    save_obsidian_category_notes()
 
     return result
 
@@ -1794,6 +1795,80 @@ def save_obsidian_note(items: list, added: int):
         print(f"  Obsidian 노트 저장: {filepath}")
     except Exception as e:
         print(f"  [오류] Obsidian 노트 저장 실패: {e}")
+
+
+def save_obsidian_category_notes():
+    """카테고리별 Obsidian 노트 생성/업데이트 — 수집 후 자동 호출"""
+    try:
+        import database as _db
+        cat_dir = os.path.join(os.path.dirname(OBSIDIAN_DIR), "카테고리")
+        os.makedirs(cat_dir, exist_ok=True)
+        today = datetime.now().strftime("%Y-%m-%d")
+        now   = datetime.now().strftime("%Y-%m-%d %H:%M")
+
+        CATS = [
+            ("산업 뉴스",       "📰", "국내외 방사선·원자력 산업 관련 최신 뉴스"),
+            ("KARA 주요이벤트", "🏢", "KARA 공식 소식 / RATIS / Campus 교육 정보"),
+            ("국제 동향",       "🌐", "해외 방사선·원자력 분야 국제 동향"),
+            ("업계 행사",       "🎤", "향후 6개월 이내 국내외 업계 행사·학술대회"),
+            ("국내외 공고",     "📋", "마감일 기준 유효한 사업 공고·모집"),
+        ]
+
+        conn = _db.get_conn()
+        for cat_name, icon, desc in CATS:
+            rows = conn.execute(
+                "SELECT title, source, url, published, summary, region, end_date, location "
+                "FROM news WHERE category=? ORDER BY published DESC, collected_at DESC",
+                (cat_name,)
+            ).fetchall()
+
+            lines = [
+                f"# {icon} {cat_name}",
+                f"",
+                f"> {desc}",
+                f"> 마지막 업데이트: {now}  |  총 {len(rows)}건",
+                f"",
+                f"---",
+                f"",
+            ]
+
+            if not rows:
+                lines.append("*수집된 정보가 없습니다.*")
+            else:
+                for r in rows:
+                    title = r["title"] or "(제목 없음)"
+                    url   = r["url"] or ""
+                    src   = r["source"] or ""
+                    pub   = (r["published"] or "")[:10]
+                    summ  = r["summary"] or ""
+                    reg   = r["region"] or ""
+                    end   = (r["end_date"] or "")[:10]
+                    loc   = r["location"] or ""
+
+                    region_tag = f" [{reg}]" if reg else ""
+                    lines.append(f"### [{title}]({url}){region_tag}" if url else f"### {title}{region_tag}")
+
+                    meta = []
+                    if src: meta.append(f"**출처:** {src}")
+                    if pub: meta.append(f"**날짜:** {pub}")
+                    if end: meta.append(f"**마감:** {end}")
+                    if loc: meta.append(f"**장소:** {loc}")
+                    if meta:
+                        lines.append("- " + "  |  ".join(meta))
+                    if summ.strip():
+                        lines.append(f"- {summ[:150]}")
+                    lines.append("")
+
+            lines += ["---", f"*[[방사선 소식 앱]] · [[daily-notes/{today}]]*"]
+
+            path = os.path.join(cat_dir, f"{cat_name}.md")
+            with open(path, "w", encoding="utf-8") as f:
+                f.write("\n".join(lines))
+
+        conn.close()
+        print(f"  Obsidian 카테고리 노트 업데이트 완료 ({cat_dir})")
+    except Exception as e:
+        print(f"  [오류] 카테고리 노트 저장 실패: {e}")
 
 
 if __name__ == "__main__":
