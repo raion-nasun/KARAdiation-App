@@ -1717,8 +1717,7 @@ def run_collection() -> dict:
     }
     print(f"  완료: {len(unique_items)}건 수집, {added}건 신규 저장\n")
 
-    # Obsidian 마크다운 저장
-    save_obsidian_note(unique_items, added)
+    # Obsidian 카테고리 노트 업데이트
     save_obsidian_category_notes()
 
     return result
@@ -1859,7 +1858,7 @@ def save_obsidian_category_notes():
                         lines.append(f"- {summ[:150]}")
                     lines.append("")
 
-            lines += ["---", f"*[[방사선 소식 앱]] · [[daily-notes/{today}]]*"]
+            lines += ["---", f"*[[방사선 소식 앱]] · 업데이트: {now}*"]
 
             path = os.path.join(cat_dir, f"{cat_name}.md")
             with open(path, "w", encoding="utf-8") as f:
